@@ -21,6 +21,8 @@ description:         Please see the README on GitHub at <https://github.com/cryp
 dependencies:
 - base >= 4.7 && < 5
 - foundation
+- aeson
+- text
 
 default-extensions:
   - NoImplicitPrelude
@@ -31,11 +33,19 @@ default-extensions:
   - UnicodeSyntax
   - GADTs
   - ScopedTypeVariables
+  - DeriveGeneric
+  - FlexibleContexts
+  - FlexibleInstances
+
+ghc-options:
+  - -ferror-spans
+  - -Wall
+  - -fno-warn-orphans
+  - -fno-warn-name-shadowing
 
 library:
   source-dirs: src
   dependencies:
-    - aeson
     - text
 
 executables:
@@ -51,6 +61,8 @@ executables:
     - gitrev
     - ansi-wl-pprint
     - optparse-applicative
+    - directory
+    - yaml
 
 tests:
   backerei-test:

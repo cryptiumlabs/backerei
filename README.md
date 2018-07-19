@@ -22,6 +22,20 @@ stack build
 stack test
 ```
 
+#### Linting
+
+First, install [Hlint](https://hackage.haskell.org/package/hlint):
+
+```bash
+stack install hlint
+```
+
+Then run:
+
+```bash
+stack exec -- hlint src app test
+```
+
 #### Installing
 
 `~/.local/bin` will need to be on your `$PATH`.
