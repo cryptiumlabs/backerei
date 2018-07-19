@@ -16,7 +16,7 @@ main = do
   run =<< execParser opts
 
 run ∷ Options → IO ()
-run (Options cmd) = do
+run (Options cmd host port) = do
   case cmd of
     Version -> do
       putDoc versionDoc
@@ -26,8 +26,7 @@ aboutDoc ∷ Doc
 aboutDoc = mconcat [
   text "Bäckerei – Tooling for the Cryptium Tezos Bäckerei",
   line,
-  text "© 2018 Cryptium Labs • https://cryptium.ch",
-  line
+  text "© 2018 Cryptium Labs • https://cryptium.ch"
   ]
 
 versionDoc ∷ Doc
