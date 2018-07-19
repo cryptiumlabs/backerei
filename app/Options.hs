@@ -51,7 +51,7 @@ initOptions ∷ Parser Command
 initOptions = Init <$> addrOptions
 
 addrOptions ∷ Parser T.Text
-addrOptions = T.pack <$> strOption (long "address" <> metavar "tz1" <> help "tz1 address of baker implicit account")
+addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
 
 delegatorsOptions ∷ Parser Command
 delegatorsOptions = pure Delegators
