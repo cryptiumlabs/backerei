@@ -1,6 +1,6 @@
-module Lib
-    ( someFunc
-    ) where
+module Lib where
 
-someFunc :: IO ()
+import           Foundation
+
+someFunc ∷ IO ()
 someFunc = putStrLn "someFunc"

@@ -20,9 +20,23 @@ description:         Please see the README on GitHub at <https://github.com/cryp
 
 dependencies:
 - base >= 4.7 && < 5
+- foundation
+
+default-extensions:
+  - NoImplicitPrelude
+  - OverloadedStrings
+  - NoMonomorphismRestriction
+  - RankNTypes
+  - LambdaCase
+  - UnicodeSyntax
+  - GADTs
+  - ScopedTypeVariables
 
 library:
   source-dirs: src
+  dependencies:
+    - aeson
+    - text
 
 executables:
   backerei:
@@ -34,6 +48,9 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - backerei
+    - gitrev
+    - ansi-wl-pprint
+    - optparse-applicative
 
 tests:
   backerei-test:

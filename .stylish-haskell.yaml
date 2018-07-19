@@ -1,0 +1,42 @@
+steps:
+  - unicode_syntax:
+      add_language_pragma: false
+
+  - simple_align:
+      cases: true
+      top_level_patterns: true
+      records: true
+
+  - imports:
+      align: global
+      list_align: after_alias
+      long_list_align: inline
+      empty_list_align: inherit
+      list_padding: 4
+      separate_lists: true
+
+  - language_pragmas:
+      style: vertical
+      align: true
+      remove_redundant: true
+
+  - trailing_whitespace: {}
+
+columns: 80
+
+newline: native
+
+language_extensions:
+  - TemplateHaskell
+  - QuasiQuotes
+  - LambdaCase
+  - ScopedTypeVariables
+  - FunctionalDependencies
+  - MultiParamTypeClasses
+  - FlexibleContexts
+  - UnicodeSyntax
+  - InstanceSigs
+  - ExistentialQuantification
+  - MultiWayIf
+  - DefaultSignatures
+  - DerivingStrategies
