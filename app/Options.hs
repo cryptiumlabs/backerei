@@ -11,36 +11,28 @@ data Context = Context {
 
 data Options = Options {
   optionsConfigPath :: P.FilePath,
-  optionsCommand    :: Command,
-  optionsHost       :: String,
-  optionsPort       :: Int
+  optionsCommand    :: Command
 }
 
 data Command =
   Version |
-  Init T.Text |
-  Delegators |
-  Expected |
+  Init T.Text T.Text Int |
+  Status |
+  Monitor |
   Payout
 
 options ∷ Context → Parser Options
-options ctx = Options <$> configOptions ctx <*> commandOptions <*> host <*> port
+options ctx = Options <$> configOptions ctx <*> commandOptions
 
 configOptions ∷ Context → Parser P.FilePath
 configOptions ctx = strOption (long "config" <> metavar "FILE" <> help "Path to YAML configuration file" <> showDefault <> value (contextHomeDirectory ctx <> "/.backerei.yaml"))
-
-host ∷ Parser String
-host = strOption (long "host" <> metavar "HOST" <> help "Tezos node RPC hostname" <> showDefault <> value "127.0.0.1")
-
-port ∷ Parser Int
-port = option auto (long "port" <> metavar "PORT" <> help "Tezos node RPC port" <> showDefault <> value 8732)
 
 commandOptions ∷ Parser Command
 commandOptions = subparser (
   command "version" (info versionOptions (progDesc "Display program version information")) <>
   command "init" (info initOptions (progDesc "Initialize configuration file")) <>
-  command "delegators" (info delegatorsOptions (progDesc "Display delegators")) <>
-  command "expected" (info expectedOptions (progDesc "Display expected baking & endorsing rights")) <>
+  command "status" (info statusOptions (progDesc "Display delegate status")) <>
+  command "monitor" (info monitorOptions (progDesc "Monitor baking & endorsing status")) <>
   command "payout" (info payoutOptions (progDesc "Calculate payouts"))
   )
 
@@ -48,16 +40,22 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Parser Command
-initOptions = Init <$> addrOptions
+initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
 
-delegatorsOptions ∷ Parser Command
-delegatorsOptions = pure Delegators
+hostOptions ∷ Parser T.Text
+hostOptions = T.pack <$> strOption (long "host" <> metavar "HOST" <> help "Tezos node RPC hostname" <> showDefault <> value "127.0.0.1")
 
-expectedOptions ∷ Parser Command
-expectedOptions = pure Expected
+portOptions ∷ Parser Int
+portOptions = option auto (long "port" <> metavar "PORT" <> help "Tezos node RPC port" <> showDefault <> value 8732)
+
+statusOptions ∷ Parser Command
+statusOptions = pure Status
+
+monitorOptions ∷ Parser Command
+monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
 payoutOptions = pure Payout

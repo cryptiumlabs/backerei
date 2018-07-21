@@ -21,13 +21,13 @@ backerei init --tz1 tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8
 #### Building
 
 ```bash
-stack build
+make build
 ```
 
 #### Testing
 
 ```bash
-stack test
+make test
 ```
 
 #### Linting
@@ -41,7 +41,7 @@ stack install hlint
 Then run:
 
 ```bash
-stack exec -- hlint src app test
+make lint
 ```
 
 #### Installing
@@ -49,5 +49,5 @@ stack exec -- hlint src app test
 `~/.local/bin` will need to be on your `$PATH`.
 
 ```bash
-stack install
+make install
 ```

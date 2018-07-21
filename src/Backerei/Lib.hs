@@ -1,4 +1,4 @@
-module Lib where
+module Backerei.Lib where
 
 import           Foundation
 

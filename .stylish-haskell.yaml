@@ -1,6 +1,6 @@
 steps:
-  - unicode_syntax:
-      add_language_pragma: false
+#  - unicode_syntax:
+#      add_language_pragma: true
 
   - simple_align:
       cases: true
@@ -41,3 +41,4 @@ language_extensions:
   - DefaultSignatures
   - DerivingStrategies
   - FlexibleInstances
+  - DataKinds

@@ -36,6 +36,7 @@ default-extensions:
   - DeriveGeneric
   - FlexibleContexts
   - FlexibleInstances
+  - DataKinds
 
 ghc-options:
   - -ferror-spans
@@ -47,6 +48,9 @@ library:
   source-dirs: src
   dependencies:
     - text
+    - req
+    - data-default-class
+    - time
 
 executables:
   backerei:

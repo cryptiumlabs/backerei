@@ -10,7 +10,9 @@ import           GHC.Generics
 import qualified Prelude          as P
 
 data Config = Config {
-  configBakerAddress :: T.Text
+  configBakerAddress :: T.Text,
+  configHost         :: T.Text,
+  configPort         :: Int
 } deriving (Generic)
 
 loadConfig ∷ P.FilePath → IO (Maybe Config)
