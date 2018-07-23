@@ -33,6 +33,11 @@ data CurrentLevel = CurrentLevel {
   levelVotingPeriodPosition :: Int
 } deriving (Generic, Show)
 
+data CycleInfo = CycleInfo {
+  cycleinfoRandomSeed   :: T.Text,
+  cycleinfoRollSnapshot :: Int
+} deriving (Generic, Show)
+
 instance A.FromJSON EndorsingRight where
   parseJSON = customParseJSON
 
@@ -40,6 +45,9 @@ instance A.FromJSON BakingRight where
   parseJSON = customParseJSON
 
 instance A.FromJSON CurrentLevel where
+  parseJSON = customParseJSON
+
+instance A.FromJSON CycleInfo where
   parseJSON = customParseJSON
 
 jsonOptions ∷ A.Options

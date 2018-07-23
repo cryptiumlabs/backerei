@@ -12,4 +12,7 @@ lint:
 test:
 	stack test
 
-.PHONY: all build install test lint
+repl:
+	stack ghci
+
+.PHONY: all build install test lint repl

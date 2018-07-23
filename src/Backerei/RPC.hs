@@ -6,6 +6,7 @@ import qualified Data.Text          as T
 import qualified Data.Time.Clock    as C
 import           Foundation
 import qualified Network.HTTP.Req   as R
+import qualified Prelude            as P
 
 import           Backerei.Types
 
@@ -20,6 +21,9 @@ defaultConfig = Config "127.0.0.1" 8732
 currentLevel :: Config -> T.Text -> IO CurrentLevel
 currentLevel config hash = get config ["chains", "main", "blocks", hash, "helpers", "current_level"] mempty
 
+cycleInfo :: Config -> T.Text -> Int -> IO CycleInfo
+cycleInfo config hash cycle = get config ["chains", "main", "blocks", hash, "context", "raw", "json", "cycle", T.pack (P.show cycle)] mempty
+
 delegatedContracts :: Config -> T.Text -> T.Text -> IO [T.Text]
 delegatedContracts config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_contracts"] mempty
 
@@ -31,6 +35,9 @@ frozenBalance config hash delegate = get config ["chains", "main", "blocks", has
 
 stakingBalance :: Config -> T.Text -> T.Text -> IO T.Text
 stakingBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
+
+balanceAt :: Config -> T.Text -> T.Text -> IO T.Text
+balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "balance"] mempty
 
 bakingRightsFor :: Config -> T.Text -> T.Text -> Int -> IO [BakingRight]
 bakingRightsFor config hash delegate cycle = get config ["chains", "main", "blocks", hash, "helpers", "baking_rights"]
