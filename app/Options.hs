@@ -19,7 +19,7 @@ data Command =
   Init T.Text T.Text Int |
   Status |
   Monitor |
-  Payout
+  Payout Int
 
 options ∷ Context → Parser Options
 options ctx = Options <$> configOptions ctx <*> commandOptions
@@ -58,4 +58,7 @@ monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
-payoutOptions = pure Payout
+payoutOptions = Payout <$> cycleOptions
+
+cycleOptions :: Parser Int
+cycleOptions = option auto (long "cycle" <> metavar "CYCLE" <> help "Cycle to calculate payouts for")

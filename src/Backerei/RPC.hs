@@ -21,6 +21,9 @@ defaultConfig = Config "127.0.0.1" 8732
 currentLevel :: Config -> T.Text -> IO CurrentLevel
 currentLevel config hash = get config ["chains", "main", "blocks", hash, "helpers", "current_level"] mempty
 
+header :: Config -> T.Text -> IO BlockHeader
+header config hash = get config ["chains", "main", "blocks", hash, "header"] mempty
+
 cycleInfo :: Config -> T.Text -> Int -> IO CycleInfo
 cycleInfo config hash cycle = get config ["chains", "main", "blocks", hash, "context", "raw", "json", "cycle", T.pack (P.show cycle)] mempty
 

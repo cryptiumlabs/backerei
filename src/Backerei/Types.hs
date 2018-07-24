@@ -9,6 +9,11 @@ import qualified Data.Time.Clock  as C
 import           Foundation
 import           GHC.Generics
 
+data BlockHeader = BlockHeader {
+  headerHash  :: T.Text,
+  headerLevel :: Int
+} deriving (Generic, Show)
+
 data EndorsingRight = EndorsingRight {
   endorsingSlots         :: [Int],
   endorsingDelegate      :: T.Text,
@@ -37,6 +42,9 @@ data CycleInfo = CycleInfo {
   cycleinfoRandomSeed   :: T.Text,
   cycleinfoRollSnapshot :: Int
 } deriving (Generic, Show)
+
+instance A.FromJSON BlockHeader where
+  parseJSON = customParseJSON
 
 instance A.FromJSON EndorsingRight where
   parseJSON = customParseJSON

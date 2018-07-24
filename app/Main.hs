@@ -15,6 +15,7 @@ import           System.Directory
 import           System.Exit
 import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
 
+import qualified Backerei.Delegation          as Delegation
 import qualified Backerei.RPC                 as RPC
 import qualified Backerei.Types               as RPC
 
@@ -84,6 +85,11 @@ run (Options configPath command) = do
           firstEndorsing:_ = sortBy (compare `on` RPC.endorsingLevel) endorsing
       T.putStrLn $ T.concat ["First baking right: ", T.pack $ P.show firstBaking]
       T.putStrLn $ T.concat ["First endorsing right: ", T.pack $ P.show firstEndorsing]
+    Payout cycle -> withConfig $ \config -> do
+      let conf  = RPC.Config (configHost config) (configPort config)
+          baker = configBakerAddress config
+      contributing <- Delegation.getContributingBalancesFor conf cycle baker
+      mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " => ", y]) contributing
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [
