@@ -37,6 +37,7 @@ default-extensions:
   - FlexibleContexts
   - FlexibleInstances
   - DataKinds
+  - GeneralizedNewtypeDeriving
 
 ghc-options:
   - -ferror-spans

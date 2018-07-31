@@ -54,15 +54,13 @@ run (Options configPath command) = do
     Status -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
-      [[head]] <- RPC.blocks conf
-      T.putStrLn $ T.concat ["Chain head: ", head]
-      delegatedBalance <- RPC.delegatedBalance conf head baker
-      T.putStrLn $ T.concat ["Delegated balance: ", delegatedBalance, " mutez"]
-      frozenBalance <- RPC.frozenBalance conf head baker
-      T.putStrLn $ T.concat ["Frozen balance: ", frozenBalance, " mutez"]
-      stakingBalance <- RPC.stakingBalance conf head baker
-      T.putStrLn $ T.concat ["Staking balance: ", stakingBalance, " mutez"]
-      delegators <- RPC.delegatedContracts conf head baker
+      delegatedBalance <- RPC.delegatedBalance conf "head" baker
+      T.putStrLn $ T.concat ["Delegated balance: ", T.pack $ P.show delegatedBalance, " XTZ"]
+      frozenBalance <- RPC.frozenBalance conf "head" baker
+      T.putStrLn $ T.concat ["Frozen balance: ", T.pack $ P.show frozenBalance, " XTZ"]
+      stakingBalance <- RPC.stakingBalance conf "head" baker
+      T.putStrLn $ T.concat ["Staking balance: ", T.pack $ P.show stakingBalance, " XTZ"]
+      delegators <- RPC.delegatedContracts conf "head" baker
       T.putStrLn $ T.concat ["Delegators (", T.pack $ P.show (P.length delegators), "):"]
       mapM_ T.putStrLn delegators
       exitSuccess
@@ -88,8 +86,10 @@ run (Options configPath command) = do
     Payout cycle -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
-      contributing <- Delegation.getContributingBalancesFor conf cycle baker
-      mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " => ", y]) contributing
+      totalRewards <- Delegation.totalRewards conf cycle baker
+      T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ"]
+      calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards
+      mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]) calculated
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [

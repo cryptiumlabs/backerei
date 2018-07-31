@@ -30,16 +30,16 @@ cycleInfo config hash cycle = get config ["chains", "main", "blocks", hash, "con
 delegatedContracts :: Config -> T.Text -> T.Text -> IO [T.Text]
 delegatedContracts config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_contracts"] mempty
 
-delegatedBalance :: Config -> T.Text -> T.Text -> IO T.Text
+delegatedBalance :: Config -> T.Text -> T.Text -> IO Tezzies
 delegatedBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_balance"] mempty
 
-frozenBalance :: Config -> T.Text -> T.Text -> IO T.Text
+frozenBalance :: Config -> T.Text -> T.Text -> IO Tezzies
 frozenBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "frozen_balance"] mempty
 
-stakingBalance :: Config -> T.Text -> T.Text -> IO T.Text
+stakingBalance :: Config -> T.Text -> T.Text -> IO Tezzies
 stakingBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
 
-balanceAt :: Config -> T.Text -> T.Text -> IO T.Text
+balanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "balance"] mempty
 
 bakingRightsFor :: Config -> T.Text -> T.Text -> Int -> IO [BakingRight]

@@ -3,11 +3,30 @@ module Backerei.Types where
 import qualified Data.Aeson       as A
 import qualified Data.Aeson.Types as A
 import           Data.Char
+import           Data.Fixed
 import           Data.List        (concatMap, zip)
 import qualified Data.Text        as T
 import qualified Data.Time.Clock  as C
 import           Foundation
 import           GHC.Generics
+import qualified Prelude          as P
+
+data XTZ
+
+instance HasResolution XTZ where
+  resolution _ = 1000000
+
+newtype Tezzies = Tezzies { unTezzies :: Fixed XTZ }
+  deriving (P.Read, P.Num, P.Real, P.RealFrac, P.Fractional, Eq, Ord, Generic)
+
+instance P.Show Tezzies where
+  show = P.show . unTezzies
+
+instance A.FromJSON Tezzies where
+  parseJSON val = do
+    result <- A.parseJSON val
+    let tez = P.read result :: Integer
+    return (Tezzies (fromIntegral tez P./ 1000000))
 
 data BlockHeader = BlockHeader {
   headerHash  :: T.Text,
