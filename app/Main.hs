@@ -2,6 +2,7 @@
 
 module Main where
 
+import           Control.Concurrent
 import           Control.Monad
 import qualified Data.Aeson                   as A
 import           Data.Function                (on)
@@ -67,7 +68,17 @@ run (Options configPath command) = do
     Monitor -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
-      [[head]] <- RPC.blocks conf
+          waitUntil height = do
+            let helper prev = do
+                  [head]:_ <- RPC.blocks conf
+                  if Just head == prev then threadDelay (P.round 1e6) >> helper prev else do
+                    header <- RPC.header conf head
+                    T.putStrLn $ T.concat ["Current height: ", T.pack $ P.show $ RPC.headerLevel header]
+                    if RPC.headerLevel header == height then return head else do
+                      helper (Just head)
+            T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
+            helper Nothing
+      [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
       let cycle = RPC.levelCycle level
       T.putStrLn $ T.concat ["Current cycle: ", T.pack $ P.show cycle]
@@ -79,10 +90,24 @@ run (Options configPath command) = do
       (cycle, baking, endorsing) <- next cycle
       T.putStrLn $ T.concat ["Found rights in cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show $ P.length baking, " blocks to bake (priority 0), ",
         T.pack $ P.show $ P.length endorsing, " blocks to endorse."]
-      let firstBaking:_ = sortBy (compare `on` RPC.bakingLevel) baking
-          firstEndorsing:_ = sortBy (compare `on` RPC.endorsingLevel) endorsing
-      T.putStrLn $ T.concat ["First baking right: ", T.pack $ P.show firstBaking]
-      T.putStrLn $ T.concat ["First endorsing right: ", T.pack $ P.show firstEndorsing]
+      let levelToWait (Right e) = RPC.endorsingLevel e + 1
+          levelToWait (Left b)  = RPC.bakingLevel b
+          allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) $ (fmap Right endorsing <> fmap Left baking)
+      forM_ allRights $ \right -> do
+        T.putStrLn $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
+        hash <- waitUntil (levelToWait right)
+        case right of
+          Right e -> do
+            operations <- RPC.operations conf hash
+            case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
+              [] -> T.putStrLn $ T.concat ["Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
+              ops -> T.putStrLn $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
+          Left b -> do
+            metadata <- RPC.metadata conf hash
+            if RPC.metadataBaker metadata == baker then do
+              T.putStrLn $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
+            else do
+              T.putStrLn $ T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
     Payout cycle -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config

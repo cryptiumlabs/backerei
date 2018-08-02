@@ -33,17 +33,22 @@ data BlockHeader = BlockHeader {
   headerLevel :: Int
 } deriving (Generic, Show)
 
+data BlockMetadata = BlockMetadata {
+  metadataProtocol :: T.Text,
+  metadataBaker    :: T.Text
+} deriving (Generic, Show)
+
 data EndorsingRight = EndorsingRight {
   endorsingSlots         :: [Int],
   endorsingDelegate      :: T.Text,
-  endorsingEstimatedTime :: C.UTCTime,
+  endorsingEstimatedTime :: Maybe C.UTCTime,
   endorsingLevel         :: Int
 } deriving (Generic, Show)
 
 data BakingRight = BakingRight {
   bakingDelegate      :: T.Text,
   bakingPriority      :: Int,
-  bakingEstimatedTime :: C.UTCTime,
+  bakingEstimatedTime :: Maybe C.UTCTime,
   bakingLevel         :: Int
 } deriving (Generic, Show)
 
@@ -62,7 +67,24 @@ data CycleInfo = CycleInfo {
   cycleinfoRollSnapshot :: Int
 } deriving (Generic, Show)
 
+data Operation = Operation {
+  operationContents :: [OperationContents]
+} deriving (Generic, Show)
+
+data OperationContents = OperationContents {
+  opcontentsKind     :: T.Text,
+  opcontentsLevel    :: Maybe Int,
+  opcontentsMetadata :: OperationMetadata
+} deriving (Generic, Show)
+
+data OperationMetadata = OperationMetadata {
+  opmetadataDelegate :: Maybe T.Text
+} deriving (Generic, Show)
+
 instance A.FromJSON BlockHeader where
+  parseJSON = customParseJSON
+
+instance A.FromJSON BlockMetadata where
   parseJSON = customParseJSON
 
 instance A.FromJSON EndorsingRight where
@@ -75,6 +97,15 @@ instance A.FromJSON CurrentLevel where
   parseJSON = customParseJSON
 
 instance A.FromJSON CycleInfo where
+  parseJSON = customParseJSON
+
+instance A.FromJSON Operation where
+  parseJSON = customParseJSON
+
+instance A.FromJSON OperationContents where
+  parseJSON = customParseJSON
+
+instance A.FromJSON OperationMetadata where
   parseJSON = customParseJSON
 
 jsonOptions ∷ A.Options
