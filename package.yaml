@@ -68,6 +68,7 @@ executables:
     - optparse-applicative
     - directory
     - yaml
+    - telegram-bot-simple
 
 tests:
   backerei-test:

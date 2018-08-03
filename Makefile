@@ -15,4 +15,7 @@ test:
 repl:
 	stack ghci
 
-.PHONY: all build install test lint repl
+clean:
+	stack clean --full
+
+.PHONY: all build install test lint repl clean

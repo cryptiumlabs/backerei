@@ -44,6 +44,22 @@ Then run:
 make lint
 ```
 
+#### Debugging
+
+To run an interactive REPL with Bäckerei scoped:
+
+```bash
+make repl
+```
+
+#### Cleaning up
+
+To remove all build files:
+
+```bash
+make clean
+```
+
 #### Installing
 
 `~/.local/bin` will need to be on your `$PATH`.
