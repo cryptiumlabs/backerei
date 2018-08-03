@@ -12,7 +12,13 @@ import qualified Prelude          as P
 data Config = Config {
   configBakerAddress :: T.Text,
   configHost         :: T.Text,
-  configPort         :: Int
+  configPort         :: Int,
+  configTelegram     :: Maybe TelegramConfig
+} deriving (Generic)
+
+data TelegramConfig = TelegramConfig {
+  telegramToken   :: T.Text,
+  telegramChannel :: T.Text
 } deriving (Generic)
 
 loadConfig ∷ P.FilePath → IO (Maybe Config)
@@ -25,6 +31,13 @@ instance Y.FromJSON Config where
   parseJSON = customParseJSON
 
 instance Y.ToJSON Config where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance Y.FromJSON TelegramConfig where
+  parseJSON = customParseJSON
+
+instance Y.ToJSON TelegramConfig where
   toJSON = customToJSON
   toEncoding = customToEncoding
 

@@ -69,6 +69,7 @@ executables:
     - directory
     - yaml
     - telegram-bot-simple
+    - servant-client
 
 tests:
   backerei-test:

@@ -12,8 +12,10 @@ import           Development.GitRev
 import           Foundation
 import           Options.Applicative
 import qualified Prelude                      as P
+import qualified Servant.Client               as TG
 import           System.Directory
 import           System.Exit
+import qualified Telegram.Bot.API             as TG
 import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
 
 import qualified Backerei.Delegation          as Delegation
@@ -49,7 +51,7 @@ run (Options configPath command) = do
       putDoc versionDoc
       exitSuccess
     Init addr host port -> do
-      let config = Config addr host port
+      let config = Config addr host port Nothing
       writeConfig configPath config
       exitSuccess
     Status -> withConfig $ \config -> do
@@ -78,6 +80,13 @@ run (Options configPath command) = do
                       helper (Just head)
             T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
+      sendMessage <-  case configTelegram config of
+                        Nothing -> return T.putStrLn
+                        Just (TelegramConfig token channel) -> do
+                          env <- TG.defaultTelegramClientEnv (TG.Token token)
+                          return $ \msg -> do
+                            TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channel) msg Nothing Nothing Nothing Nothing Nothing)) env
+                            T.putStrLn msg
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
       let cycle = RPC.levelCycle level
@@ -94,20 +103,20 @@ run (Options configPath command) = do
           levelToWait (Left b)  = RPC.bakingLevel b
           allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) $ (fmap Right endorsing <> fmap Left baking)
       forM_ allRights $ \right -> do
-        T.putStrLn $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
+        sendMessage $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
         hash <- waitUntil (levelToWait right)
         case right of
           Right e -> do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
-              [] -> T.putStrLn $ T.concat ["Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
-              ops -> T.putStrLn $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
+              [] -> sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
+              ops -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
           Left b -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then do
-              T.putStrLn $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
+              sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else do
-              T.putStrLn $ T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
+              sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
     Payout cycle -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
