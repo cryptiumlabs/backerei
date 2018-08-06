@@ -71,5 +71,5 @@ get config path options = R.runReq def $ do
     (foldl' ((R./:)) (R.http (configHost config)) path)
     R.NoReqBody
     R.jsonResponse
-    (R.port (configPort config) <> R.responseTimeout 600 <> options)
+    (R.port (configPort config) <> R.responseTimeout 600000000 <> options)
   return (R.responseBody r)
