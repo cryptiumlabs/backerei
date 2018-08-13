@@ -36,9 +36,9 @@ totalRewards config cycle delegate = do
       totalReward = (bakingReward P.* fromIntegral (P.length bakingRights)) P.+ (endorsingReward P.* fromIntegral (P.length endorsingRights))
   return totalReward
 
-calculateRewardsFor :: RPC.Config -> Int -> T.Text -> Tezzies -> IO [(T.Text, Tezzies)]
-calculateRewardsFor config cycle delegate rewards = do
+calculateRewardsFor :: RPC.Config -> Int -> T.Text -> Tezzies -> Rational -> IO [(T.Text, Tezzies)]
+calculateRewardsFor config cycle delegate rewards fee = do
   balances <- getContributingBalancesFor config cycle delegate
   let totalBalance :: Tezzies
       totalBalance = P.sum $ fmap snd balances
-  return $ fmap (\(x, y) -> (x, y P.* rewards P./ totalBalance)) balances
+  return $ fmap (\(x, y) -> (x, y P.* (1 P.- P.fromRational fee) P.* rewards P./ totalBalance)) balances

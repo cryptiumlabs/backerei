@@ -117,12 +117,12 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else do
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout cycle -> withConfig $ \config -> do
+    Payout cycle fee -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
       totalRewards <- Delegation.totalRewards conf cycle baker
       T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ"]
-      calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards
+      calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
       mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]) calculated
 
 aboutDoc ∷ Doc
