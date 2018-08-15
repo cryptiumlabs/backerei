@@ -121,7 +121,7 @@ run (Options configPath command) = do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
       totalRewards <- Delegation.totalRewards conf cycle baker
-      T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ"]
+      T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ; less fee: ", T.pack $ P.show $ (totalRewards P.* (1 P.- P.fromRational fee))]
       calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
       mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]) calculated
 
