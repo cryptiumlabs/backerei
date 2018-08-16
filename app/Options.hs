@@ -19,7 +19,7 @@ data Command =
   Init T.Text T.Text Int T.Text T.Text |
   Status |
   Monitor |
-  Payout Int Rational
+  Payout Int Rational Bool
 
 options ∷ Context → Parser Options
 options ctx = Options <$> configOptions ctx <*> commandOptions
@@ -64,10 +64,13 @@ monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
-payoutOptions = Payout <$> cycleOptions <*> feeOptions
+payoutOptions = Payout <$> cycleOptions <*> feeOptions <*> noDryRunOptions
 
 cycleOptions :: Parser Int
 cycleOptions = option auto (long "cycle" <> metavar "CYCLE" <> help "Cycle to calculate payouts for")
 
 feeOptions :: Parser Rational
 feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fraction baker fee" <> showDefault <> value (1 / 10))
+
+noDryRunOptions :: Parser Bool
+noDryRunOptions = switch (long "no-dry-run" <> help "Really transfer Tezzies")

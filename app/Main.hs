@@ -118,7 +118,7 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else do
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout cycle fee -> withConfig $ \config -> do
+    Payout cycle fee noDryRun -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           from  = configFromAddress config
           baker = configBakerAddress config
@@ -130,13 +130,15 @@ run (Options configPath command) = do
         T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
         let cmd = [path, "transfer", T.pack $ P.show y, "from", from, "to", x, "--fee", "0.0"]
         T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
-        let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
-        (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
-        if code /= ExitSuccess then do
-          T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
-          exitFailure
-        else do
-          T.putStrLn $ T.pack stdout
+        if noDryRun then do
+          let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
+          (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
+          if code /= ExitSuccess then do
+            T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+            exitFailure
+          else do
+            T.putStrLn $ T.pack stdout
+        else return ()
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [
