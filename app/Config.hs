@@ -13,6 +13,7 @@ data Config = Config {
   configBakerAddress :: T.Text,
   configHost         :: T.Text,
   configPort         :: Int,
+  configFromAddress  :: T.Text,
   configClientPath   :: T.Text,
   configTelegram     :: Maybe TelegramConfig
 } deriving (Generic)

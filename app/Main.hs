@@ -51,8 +51,8 @@ run (Options configPath command) = do
     Version -> do
       putDoc versionDoc
       exitSuccess
-    Init addr host port path -> do
-      let config = Config addr host port path Nothing
+    Init addr host port path from -> do
+      let config = Config addr host port from path Nothing
       writeConfig configPath config
       exitSuccess
     Status -> withConfig $ \config -> do
@@ -120,6 +120,7 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
     Payout cycle fee -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
+          from  = configFromAddress config
           baker = configBakerAddress config
           path  = configClientPath config
       totalRewards <- Delegation.totalRewards conf cycle baker
@@ -127,7 +128,7 @@ run (Options configPath command) = do
       calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
       forM_ (drop 1 calculated) $ \(x, y) -> do
         T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
-        let cmd = [path, "transfer", T.pack $ P.show y, "from", baker, "to", x, "--fee", "0.0"]
+        let cmd = [path, "transfer", T.pack $ P.show y, "from", from, "to", x, "--fee", "0.0"]
         T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
         let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
         (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""

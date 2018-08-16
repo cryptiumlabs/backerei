@@ -16,7 +16,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text |
+  Init T.Text T.Text Int T.Text T.Text |
   Status |
   Monitor |
   Payout Int Rational
@@ -40,7 +40,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Parser Command
-initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions <*> pathOptions
+initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions <*> pathOptions <*> fromOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -53,6 +53,9 @@ portOptions = option auto (long "port" <> metavar "PORT" <> help "Tezos node RPC
 
 pathOptions :: Parser T.Text
 pathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
+
+fromOptions :: Parser T.Text
+fromOptions = T.pack <$> strOption (long "from" <> metavar "FROM" <> help "Address to send payouts from")
 
 statusOptions ∷ Parser Command
 statusOptions = pure Status
