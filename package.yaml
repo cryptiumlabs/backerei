@@ -70,6 +70,7 @@ executables:
     - yaml
     - telegram-bot-simple
     - servant-client
+    - process
 
 tests:
   backerei-test:

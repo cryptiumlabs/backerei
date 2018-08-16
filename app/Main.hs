@@ -15,6 +15,7 @@ import qualified Prelude                      as P
 import qualified Servant.Client               as TG
 import           System.Directory
 import           System.Exit
+import qualified System.Process               as P
 import qualified Telegram.Bot.API             as TG
 import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
 
@@ -50,8 +51,8 @@ run (Options configPath command) = do
     Version -> do
       putDoc versionDoc
       exitSuccess
-    Init addr host port -> do
-      let config = Config addr host port Nothing
+    Init addr host port path -> do
+      let config = Config addr host port path Nothing
       writeConfig configPath config
       exitSuccess
     Status -> withConfig $ \config -> do
@@ -120,10 +121,21 @@ run (Options configPath command) = do
     Payout cycle fee -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
+          path  = configClientPath config
       totalRewards <- Delegation.totalRewards conf cycle baker
       T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ; less fee: ", T.pack $ P.show $ (totalRewards P.* (1 P.- P.fromRational fee))]
       calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
-      mapM_ (\(x, y) -> T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]) calculated
+      forM_ (drop 1 calculated) $ \(x, y) -> do
+        T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
+        let cmd = [path, "transfer", T.pack $ P.show y, "from", baker, "to", x, "--fee", "0.0"]
+        T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
+        let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
+        (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
+        if code /= ExitSuccess then do
+          T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+          exitFailure
+        else do
+          T.putStrLn $ T.pack stdout
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [
