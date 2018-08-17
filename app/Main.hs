@@ -123,9 +123,11 @@ run (Options configPath command) = do
           from  = configFromAddress config
           baker = configBakerAddress config
           path  = configClientPath config
+
       totalRewards <- Delegation.totalRewards conf cycle baker
+      (calculated, stakingBalance) <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
+      T.putStrLn $ T.concat ["Staking balance: ", T.pack $ P.show stakingBalance, " XTZ"]
       T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ; less fee: ", T.pack $ P.show $ (totalRewards P.* (1 P.- P.fromRational fee))]
-      calculated <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
       forM_ (drop 1 calculated) $ \(x, y) -> do
         T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
         let cmd = [path, "transfer", T.pack $ P.show y, "from", from, "to", x, "--fee", "0.0"]
