@@ -52,14 +52,14 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
               -- TODO calculate endorsement rewards
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
-                  extraRewards = stolenRewards P.+ feeRewards
+                  extraRewards = feeRewards
                   realizedRewards = feeRewards P.+ RPC.frozenRewards thisCycle
                   estimatedRewards = cycleEstimatedTotalRewards cyclePayout
                   paidRewards = estimatedRewards P.+ extraRewards
-                  difference = realizedRewards P.- paidRewards
-                  finalTotalRewards = CycleRewards realizedRewards paidRewards difference
-              P.print (estimatedRewards, realizedRewards, paidRewards, difference)
-              if difference > 0 then fail "should not happen: positive difference" else return ()
+                  realizedDifference = realizedRewards P.- paidRewards
+                  estimatedDifference = estimatedRewards P.- paidRewards
+                  finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
+              if estimatedDifference > 0 then fail "should not happen: positive difference" else return ()
               ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout

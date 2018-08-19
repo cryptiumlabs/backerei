@@ -73,6 +73,7 @@ executables:
     - telegram-bot-simple
     - servant-client
     - process
+    - aeson-pretty
 
 tests:
   backerei-test:

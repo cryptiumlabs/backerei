@@ -1,17 +1,18 @@
 module DB where
 
-import qualified Data.Aeson           as A
-import qualified Data.Aeson.Types     as A
-import qualified Data.ByteString.Lazy as BL
-import           Data.Char            (isLower, toLower)
-import qualified Data.Map             as M
-import qualified Data.Text            as T
+import qualified Data.Aeson               as A
+import qualified Data.Aeson.Encode.Pretty as A
+import qualified Data.Aeson.Types         as A
+import qualified Data.ByteString.Lazy     as BL
+import           Data.Char                (isLower, toLower)
+import qualified Data.Map                 as M
+import qualified Data.Text                as T
 import           Foundation
 import           GHC.Generics
-import qualified Prelude              as P
-import qualified System.Directory     as D
+import qualified Prelude                  as P
+import qualified System.Directory         as D
 
-import           Backerei.Types       (Tezzies)
+import           Backerei.Types           (Tezzies)
 
 withDB :: forall a . P.FilePath -> (Maybe DB -> IO (DB, a)) -> IO a
 withDB path func = do
@@ -24,8 +25,11 @@ withDB path func = do
         Nothing     -> error "could not decode DB"
     else do
       func Nothing
-  BL.writeFile path $ A.encode updated
+  BL.writeFile path $ A.encodePretty' prettyConfig updated
   return other
+
+prettyConfig :: A.Config
+prettyConfig = A.Config (A.Spaces 4) A.compare A.Generic False
 
 data DB = DB {
   dbPayoutsByCycle :: M.Map Int CyclePayout
@@ -51,9 +55,10 @@ data StolenBlock = StolenBlock {
 } deriving (Generic, Show)
 
 data CycleRewards = CycleRewards {
-  rewardsRealized   :: Tezzies,
-  rewardsPaid       :: Tezzies,
-  rewardsDifference :: Tezzies
+  rewardsRealized            :: Tezzies,
+  rewardsPaid                :: Tezzies,
+  rewardsRealizedDifference  :: Tezzies,
+  rewardsEstimatedDifference :: Tezzies
 } deriving (Generic, Show)
 
 data BakerRewards = BakerRewards {

@@ -36,7 +36,7 @@ estimatedRewards config cycle delegate = do
       endorsingReward :: Tezzies
       endorsingReward = 2
       totalReward :: Tezzies
-      totalReward = (bakingReward P.* fromIntegral (P.length bakingRights)) P.+ (endorsingReward P.* fromIntegral (P.length endorsingRights))
+      totalReward = (bakingReward P.* fromIntegral (P.length bakingRights)) P.+ (endorsingReward P.* fromIntegral (P.sum $ fmap (P.length . endorsingSlots) endorsingRights))
   return totalReward
 
 blockHashByLevel :: RPC.Config -> Int -> IO T.Text
