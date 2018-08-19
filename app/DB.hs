@@ -36,14 +36,24 @@ data CyclePayout = CyclePayout {
   cycleFee                   :: Rational,
   cycleEstimatedTotalRewards :: Tezzies,
   cycleEstimatedBakerRewards :: BakerRewards,
+  cycleStolenBlocks          :: [StolenBlock],
   cycleFinalTotalRewards     :: Maybe CycleRewards,
   cycleFinalBakerRewards     :: Maybe BakerRewards,
   cycleDelegators            :: M.Map T.Text DelegatorPayout
 } deriving (Generic, Show)
 
+data StolenBlock = StolenBlock {
+  blockLevel    :: Int,
+  blockHash     :: T.Text,
+  blockPriority :: Int,
+  blockReward   :: Tezzies,
+  blockFees     :: Tezzies
+} deriving (Generic, Show)
+
 data CycleRewards = CycleRewards {
-  rewardsRealized :: Tezzies,
-  rewardsPaid     :: Tezzies
+  rewardsRealized   :: Tezzies,
+  rewardsPaid       :: Tezzies,
+  rewardsDifference :: Tezzies
 } deriving (Generic, Show)
 
 data BakerRewards = BakerRewards {
@@ -54,14 +64,10 @@ data BakerRewards = BakerRewards {
 } deriving (Generic, Show)
 
 data DelegatorPayout = DelegatorPayout {
-  delegatorBalance          :: Tezzies,
-  delegatorEstimatedRewards :: Tezzies,
-  delegatorFinalRewards     :: Maybe DelegatorRewards
-} deriving (Generic, Show)
-
-data DelegatorRewards = DelegatorRewards {
-  rewardsAmount        :: Tezzies,
-  rewardsOperationHash :: T.Text
+  delegatorBalance             :: Tezzies,
+  delegatorEstimatedRewards    :: Tezzies,
+  delegatorFinalRewards        :: Maybe Tezzies,
+  delegatorPayoutOperationHash :: Maybe T.Text
 } deriving (Generic, Show)
 
 instance A.FromJSON DB where
@@ -99,10 +105,10 @@ instance A.ToJSON DelegatorPayout where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
-instance A.FromJSON DelegatorRewards where
+instance A.FromJSON StolenBlock where
   parseJSON = customParseJSON
 
-instance A.ToJSON DelegatorRewards where
+instance A.ToJSON StolenBlock where
   toJSON = customToJSON
   toEncoding = customToEncoding
 

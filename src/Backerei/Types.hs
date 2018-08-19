@@ -37,8 +37,18 @@ data BlockHeader = BlockHeader {
 } deriving (Generic, Show)
 
 data BlockMetadata = BlockMetadata {
-  metadataProtocol :: T.Text,
-  metadataBaker    :: T.Text
+  metadataProtocol       :: T.Text,
+  metadataBaker          :: T.Text,
+  metadataBalanceUpdates :: [BalanceUpdate]
+} deriving (Generic, Show)
+
+data BalanceUpdate = BalanceUpdate {
+  updateKind     :: T.Text,
+  updateCategory :: Maybe T.Text,
+  updateContract :: Maybe T.Text,
+  updateDelegate :: Maybe T.Text,
+  updateLevel    :: Maybe Int,
+  updateChange   :: Tezzies
 } deriving (Generic, Show)
 
 data EndorsingRight = EndorsingRight {
@@ -76,6 +86,7 @@ data Operation = Operation {
 
 data OperationContents = OperationContents {
   opcontentsKind     :: T.Text,
+  opcontentsFee      :: Maybe Tezzies,
   opcontentsLevel    :: Maybe Int,
   opcontentsMetadata :: OperationMetadata
 } deriving (Generic, Show)
@@ -119,6 +130,9 @@ instance A.FromJSON OperationMetadata where
   parseJSON = customParseJSON
 
 instance A.FromJSON FrozenBalanceByCycle where
+  parseJSON = customParseJSON
+
+instance A.FromJSON BalanceUpdate where
   parseJSON = customParseJSON
 
 jsonOptions ∷ A.Options
