@@ -16,21 +16,21 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text Rational T.Text |
+  Init T.Text T.Text Int T.Text Rational T.Text T.Text |
   Status |
   Monitor |
   Payout Bool
 
 options ∷ Context → Parser Options
-options ctx = Options <$> configOptions ctx <*> commandOptions
+options ctx = Options <$> configOptions ctx <*> commandOptions ctx
 
 configOptions ∷ Context → Parser P.FilePath
 configOptions ctx = strOption (long "config" <> metavar "FILE" <> help "Path to YAML configuration file" <> showDefault <> value (contextHomeDirectory ctx <> "/.backerei.yaml"))
 
-commandOptions ∷ Parser Command
-commandOptions = subparser (
+commandOptions ∷ Context -> Parser Command
+commandOptions ctx = subparser (
   command "version" (info versionOptions (progDesc "Display program version information")) <>
-  command "init" (info initOptions (progDesc "Initialize configuration file")) <>
+  command "init" (info (initOptions ctx) (progDesc "Initialize configuration file")) <>
   command "status" (info statusOptions (progDesc "Display delegate status")) <>
   command "monitor" (info monitorOptions (progDesc "Monitor baking & endorsing status")) <>
   command "payout" (info payoutOptions (progDesc "Calculate payouts"))
@@ -39,8 +39,8 @@ commandOptions = subparser (
 versionOptions ∷ Parser Command
 versionOptions = pure Version
 
-initOptions ∷ Parser Command
-initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> pathOptions
+initOptions ∷ Context -> Parser Command
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -57,8 +57,11 @@ fromOptions = T.pack <$> strOption (long "from" <> metavar "FROM" <> help "Addre
 feeOptions :: Parser Rational
 feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value (1 / 10))
 
-pathOptions :: Parser T.Text
-pathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
+dbPathOptions :: Context -> Parser T.Text
+dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPATH" <> help "Path to JSON DB" <> showDefault <> value (contextHomeDirectory ctx <> "/transparency/tezos.json"))
+
+clientPathOptions :: Parser T.Text
+clientPathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
 
 statusOptions ∷ Parser Command
 statusOptions = pure Status

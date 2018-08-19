@@ -18,6 +18,9 @@ data Config = Config {
 defaultConfig :: Config
 defaultConfig = Config "127.0.0.1" 8732
 
+head :: T.Text
+head = "head"
+
 currentLevel :: Config -> T.Text -> IO CurrentLevel
 currentLevel config hash = get config ["chains", "main", "blocks", hash, "helpers", "current_level"] mempty
 
@@ -36,14 +39,20 @@ cycleInfo config hash cycle = get config ["chains", "main", "blocks", hash, "con
 delegatedContracts :: Config -> T.Text -> T.Text -> IO [T.Text]
 delegatedContracts config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_contracts"] mempty
 
-delegatedBalance :: Config -> T.Text -> T.Text -> IO Tezzies
-delegatedBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_balance"] mempty
+delegatedBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
+delegatedBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "delegated_balance"] mempty
 
-frozenBalance :: Config -> T.Text -> T.Text -> IO Tezzies
-frozenBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "frozen_balance"] mempty
+delegateBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
+delegateBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "balance"] mempty
 
-stakingBalance :: Config -> T.Text -> T.Text -> IO Tezzies
-stakingBalance config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
+frozenBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
+frozenBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "frozen_balance"] mempty
+
+frozenBalanceByCycle :: Config -> T.Text -> T.Text -> IO [FrozenBalanceByCycle]
+frozenBalanceByCycle config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "frozen_balance_by_cycle"] mempty
+
+stakingBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
+stakingBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
 
 balanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "balance"] mempty

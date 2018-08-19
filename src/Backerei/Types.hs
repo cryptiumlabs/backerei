@@ -29,7 +29,7 @@ instance A.FromJSON Tezzies where
     return (Tezzies (fromIntegral tez P./ 1000000))
 
 instance A.ToJSON Tezzies where
-  toJSON (Tezzies t) = A.toJSON $ T.pack $ P.show t
+  toJSON (Tezzies (MkFixed t)) = A.toJSON $ T.pack $ P.show t
 
 data BlockHeader = BlockHeader {
   headerHash  :: T.Text,
@@ -84,6 +84,13 @@ data OperationMetadata = OperationMetadata {
   opmetadataDelegate :: Maybe T.Text
 } deriving (Generic, Show)
 
+data FrozenBalanceByCycle = FrozenBalanceByCycle {
+  frozenCycle   :: Int,
+  frozenDeposit :: Tezzies,
+  frozenFees    :: Tezzies,
+  frozenRewards :: Tezzies
+} deriving (Generic, Show)
+
 instance A.FromJSON BlockHeader where
   parseJSON = customParseJSON
 
@@ -109,6 +116,9 @@ instance A.FromJSON OperationContents where
   parseJSON = customParseJSON
 
 instance A.FromJSON OperationMetadata where
+  parseJSON = customParseJSON
+
+instance A.FromJSON FrozenBalanceByCycle where
   parseJSON = customParseJSON
 
 jsonOptions ∷ A.Options

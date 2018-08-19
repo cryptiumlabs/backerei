@@ -52,18 +52,18 @@ run (Options configPath command) = do
     Version -> do
       putDoc versionDoc
       exitSuccess
-    Init addr host port from fee path -> do
-      let config = Config addr host port from fee path Nothing
+    Init addr host port from fee dbPath clientPath -> do
+      let config = Config addr host port from fee dbPath clientPath Nothing
       writeConfig configPath config
       exitSuccess
     Status -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
-      delegatedBalance <- RPC.delegatedBalance conf "head" baker
+      delegatedBalance <- RPC.delegatedBalanceAt conf "head" baker
       T.putStrLn $ T.concat ["Delegated balance: ", T.pack $ P.show delegatedBalance, " XTZ"]
-      frozenBalance <- RPC.frozenBalance conf "head" baker
+      frozenBalance <- RPC.frozenBalanceAt conf "head" baker
       T.putStrLn $ T.concat ["Frozen balance: ", T.pack $ P.show frozenBalance, " XTZ"]
-      stakingBalance <- RPC.stakingBalance conf "head" baker
+      stakingBalance <- RPC.stakingBalanceAt conf "head" baker
       T.putStrLn $ T.concat ["Staking balance: ", T.pack $ P.show stakingBalance, " XTZ"]
       delegators <- RPC.delegatedContracts conf "head" baker
       T.putStrLn $ T.concat ["Delegators (", T.pack $ P.show (P.length delegators), "):"]

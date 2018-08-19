@@ -24,6 +24,7 @@ dependencies:
 - aeson
 - text
 - containers
+- bytestring
 
 default-extensions:
   - NoImplicitPrelude

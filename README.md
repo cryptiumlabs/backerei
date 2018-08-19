@@ -14,6 +14,8 @@ Initialize Bäckerei with the [Cryptium Labs tz1 address](https://tzscan.io/tz1e
 backerei init --tz1 tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8
 ```
 
+You can see previous payout information [here](https://github.com/cryptiumlabs/transparency/tree/master/tezos).
+
 ### Development
 
 [Stack](https://haskellstack.org) required.
