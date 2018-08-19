@@ -16,10 +16,10 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text T.Text |
+  Init T.Text T.Text Int T.Text Rational T.Text |
   Status |
   Monitor |
-  Payout Int Rational Bool
+  Payout Bool
 
 options ∷ Context → Parser Options
 options ctx = Options <$> configOptions ctx <*> commandOptions
@@ -40,7 +40,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Parser Command
-initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions <*> pathOptions <*> fromOptions
+initOptions = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> pathOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -51,11 +51,14 @@ hostOptions = T.pack <$> strOption (long "host" <> metavar "HOST" <> help "Tezos
 portOptions ∷ Parser Int
 portOptions = option auto (long "port" <> metavar "PORT" <> help "Tezos node RPC port" <> showDefault <> value 8732)
 
-pathOptions :: Parser T.Text
-pathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
-
 fromOptions :: Parser T.Text
 fromOptions = T.pack <$> strOption (long "from" <> metavar "FROM" <> help "Address to send payouts from")
+
+feeOptions :: Parser Rational
+feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value (1 / 10))
+
+pathOptions :: Parser T.Text
+pathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
 
 statusOptions ∷ Parser Command
 statusOptions = pure Status
@@ -64,13 +67,10 @@ monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
-payoutOptions = Payout <$> cycleOptions <*> feeOptions <*> noDryRunOptions
+payoutOptions = Payout <$> noDryRunOptions
 
 cycleOptions :: Parser Int
 cycleOptions = option auto (long "cycle" <> metavar "CYCLE" <> help "Cycle to calculate payouts for")
-
-feeOptions :: Parser Rational
-feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fraction baker fee" <> showDefault <> value (1 / 10))
 
 noDryRunOptions :: Parser Bool
 noDryRunOptions = switch (long "no-dry-run" <> help "Really transfer Tezzies")

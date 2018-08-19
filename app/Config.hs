@@ -14,6 +14,7 @@ data Config = Config {
   configHost         :: T.Text,
   configPort         :: Int,
   configFromAddress  :: T.Text,
+  configFee          :: Rational,
   configClientPath   :: T.Text,
   configTelegram     :: Maybe TelegramConfig
 } deriving (Generic)

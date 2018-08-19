@@ -28,6 +28,9 @@ instance A.FromJSON Tezzies where
     let tez = P.read result :: Integer
     return (Tezzies (fromIntegral tez P./ 1000000))
 
+instance A.ToJSON Tezzies where
+  toJSON (Tezzies t) = A.toJSON $ T.pack $ P.show t
+
 data BlockHeader = BlockHeader {
   headerHash  :: T.Text,
   headerLevel :: Int

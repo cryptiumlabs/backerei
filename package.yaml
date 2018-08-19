@@ -23,6 +23,7 @@ dependencies:
 - foundation
 - aeson
 - text
+- containers
 
 default-extensions:
   - NoImplicitPrelude

@@ -25,6 +25,7 @@ import qualified Backerei.Types               as RPC
 
 import           Config
 import           Options
+import           Payout
 
 main ∷ IO ()
 main = do
@@ -51,8 +52,8 @@ run (Options configPath command) = do
     Version -> do
       putDoc versionDoc
       exitSuccess
-    Init addr host port path from -> do
-      let config = Config addr host port from path Nothing
+    Init addr host port from fee path -> do
+      let config = Config addr host port from fee path Nothing
       writeConfig configPath config
       exitSuccess
     Status -> withConfig $ \config -> do
@@ -118,29 +119,7 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else do
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout cycle fee noDryRun -> withConfig $ \config -> do
-      let conf  = RPC.Config (configHost config) (configPort config)
-          from  = configFromAddress config
-          baker = configBakerAddress config
-          path  = configClientPath config
-
-      totalRewards <- Delegation.totalRewards conf cycle baker
-      (calculated, stakingBalance) <- Delegation.calculateRewardsFor conf cycle baker totalRewards fee
-      T.putStrLn $ T.concat ["Staking balance: ", T.pack $ P.show stakingBalance, " XTZ"]
-      T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show totalRewards, " XTZ; less fee: ", T.pack $ P.show $ (totalRewards P.* (1 P.- P.fromRational fee))]
-      forM_ (drop 1 calculated) $ \(x, y) -> do
-        T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
-        let cmd = [path, "transfer", T.pack $ P.show y, "from", from, "to", x, "--fee", "0.0"]
-        T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
-        if noDryRun then do
-          let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
-          (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
-          if code /= ExitSuccess then do
-            T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
-            exitFailure
-          else do
-            T.putStrLn $ T.pack stdout
-        else return ()
+    Payout noDryRun -> withConfig $ flip payout noDryRun
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [
