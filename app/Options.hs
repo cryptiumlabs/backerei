@@ -58,7 +58,7 @@ feeOptions :: Parser Rational
 feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value (1 / 10))
 
 dbPathOptions :: Context -> Parser T.Text
-dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPATH" <> help "Path to JSON DB" <> showDefault <> value (contextHomeDirectory ctx <> "/transparency/tezos.json"))
+dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPATH" <> help "Path to JSON DB" <> showDefault <> value (contextHomeDirectory ctx <> "/.backerei.json"))
 
 clientPathOptions :: Parser T.Text
 clientPathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
@@ -71,9 +71,6 @@ monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
 payoutOptions = Payout <$> noDryRunOptions
-
-cycleOptions :: Parser Int
-cycleOptions = option auto (long "cycle" <> metavar "CYCLE" <> help "Cycle to calculate payouts for")
 
 noDryRunOptions :: Parser Bool
 noDryRunOptions = switch (long "no-dry-run" <> help "Really transfer Tezzies")
