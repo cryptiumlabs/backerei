@@ -16,7 +16,7 @@ getContributingBalancesFor config cycle delegate = do
   {- Cycles are 4096 blocks long, snapshots happen once every 256 blocks. -}
   let blockHeight = (cycle - 7) * 4096 + ((snapshot + 1) * 256)
   (BlockHeader snapshotBlockHash snapshotBlockLevel) <- RPC.header config (T.concat [hash, "~", T.pack $ P.show $ level - blockHeight])
-  if snapshotBlockLevel /= blockHeight then error "should not happen" else return ()
+  if snapshotBlockLevel /= blockHeight then error "should not happen: tezos rpc fault" else return ()
   delegators <- RPC.delegatedContracts config snapshotBlockHash delegate
   balances <- mapM (RPC.balanceAt config snapshotBlockHash) delegators
   fullBalance <- RPC.delegateBalanceAt config snapshotBlockHash delegate
@@ -43,7 +43,7 @@ blockHashByLevel :: RPC.Config -> Int -> IO T.Text
 blockHashByLevel config level = do
   (BlockHeader hashHead levelHead) <- RPC.header config "head"
   (BlockHeader hash' level') <- RPC.header config (T.concat [hashHead, "~", T.pack $ P.show $ levelHead - level])
-  if level /= level' then error "should not happen" else return ()
+  if level /= level' then error "should not happen: tezos rpc fault" else return ()
   return hash'
 
 stolenBlocks :: RPC.Config -> Int -> T.Text -> IO [(Int, T.Text, Int, Tezzies, Tezzies)]
@@ -59,21 +59,6 @@ stolenBlocks config cycle delegate = do
           fees = P.sum $ fmap (P.sum . fmap (fromMaybe 0 . opcontentsFee) . operationContents) operations
       return [(level, hash, priority, reward, fees)])
   return stolen
-
--- TODO
-allBlockRewards :: RPC.Config -> Int -> T.Text -> IO Tezzies
-allBlockRewards config cycle delegate = do
-  bakingRights <- RPC.bakingRightsFor config "head" delegate cycle
-  rewards <- mconcat `fmap` (flip mapM bakingRights $ \(BakingRight _ priority _ level) -> do
-    hash <- blockHashByLevel config level
-    (BlockMetadata _ baker balanceUpdates) <- RPC.metadata config hash
-    if baker /= delegate then return [] else do
-      operations <- RPC.operations config hash
-      let [update] = filter (\u -> updateKind u == "freezer" && updateCategory u == Just "rewards" && updateDelegate u == Just delegate) balanceUpdates
-          reward = updateChange update
-          fees = P.sum $ fmap (P.sum . fmap (fromMaybe 0 . opcontentsFee) . operationContents) operations
-      return [reward])
-  return $ P.sum rewards
 
 calculateRewardsFor :: RPC.Config -> Int -> T.Text -> Tezzies -> Rational -> IO ((Tezzies, Tezzies, Tezzies, Tezzies), [(T.Text, Tezzies, Tezzies)], Tezzies)
 calculateRewardsFor config cycle delegate rewards fee = do
@@ -91,5 +76,5 @@ calculateRewardsFor config cycle delegate rewards fee = do
       bakerLooseReward = rewards P.- totalDelegatorRewards P.- bakerSelfReward P.- bakerFeeReward
       bakerTotalReward = bakerSelfReward P.+ bakerFeeReward P.+ bakerLooseReward
       bakerRewards = (bakerSelfReward, bakerFeeReward, bakerLooseReward, bakerTotalReward)
-  if (bakerTotalReward P.+ totalDelegatorRewards /= rewards) then error "should not happen" else return ()
+  if (bakerTotalReward P.+ totalDelegatorRewards /= rewards) then error "should not happen: rewards mismatch" else return ()
   return (bakerRewards, delegatorRewards, stakingBalance)

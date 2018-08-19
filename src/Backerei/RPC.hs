@@ -3,7 +3,6 @@ module Backerei.RPC where
 import qualified Data.Aeson         as A
 import           Data.Default.Class
 import qualified Data.Text          as T
-import qualified Data.Time.Clock    as C
 import           Foundation
 import qualified Network.HTTP.Req   as R
 import qualified Prelude            as P

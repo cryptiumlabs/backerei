@@ -1,12 +1,10 @@
 module Payout where
 
 import           Control.Monad
-import qualified Data.Aeson          as A
 import qualified Data.Map            as M
 import qualified Data.Text           as T
 import qualified Data.Text.IO        as T
 import           Foundation
-import           Options.Applicative
 import qualified Prelude             as P
 
 import qualified Backerei.Delegation as Delegation
@@ -47,9 +45,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
               T.putStrLn $ T.concat ["Updating DB with actual earnings for cycle ", T.pack $ P.show cycle, "..."]
               stolen <- Delegation.stolenBlocks conf cycle baker
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
-                  stolenRewards = foldl' (P.+) 0 $ fmap blockReward stolenBlocks
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf "head" baker
-              -- TODO calculate endorsement rewards
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
                   extraRewards = feeRewards
@@ -79,7 +75,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
             unlockedCycle = currentCycle - 6
-        foldFirst db (fmap maybeUpdateActualForCycle [11 .. unlockedCycle])
+        foldFirst db (fmap maybePayoutForCycle [11 .. unlockedCycle])
 
       step databasePath db = do
         case db of
@@ -94,7 +90,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
 
   loop
 
-foldFirst :: a -> [(a -> IO (a, Bool))] -> IO (a, Bool)
+foldFirst :: a -> [a -> IO (a, Bool)] -> IO (a, Bool)
 foldFirst obj [] = return (obj, False)
 foldFirst obj (act:rest) = do
   (new, updated) <- act obj

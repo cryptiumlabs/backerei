@@ -7,7 +7,7 @@ install: build
 	stack install
 
 lint:
-	stack exec -- hlint src app test
+	stack exec -- hlint app src test
 
 test:
 	stack test

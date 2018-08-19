@@ -1,13 +1,12 @@
 module Config where
 
-import qualified Data.Aeson       as A
-import qualified Data.Aeson.Types as A
-import           Data.Char        (isLower, toLower)
-import qualified Data.Text        as T
-import qualified Data.Yaml        as Y
+import qualified Data.Aeson   as A
+import           Data.Char    (isLower, toLower)
+import qualified Data.Text    as T
+import qualified Data.Yaml    as Y
 import           Foundation
 import           GHC.Generics
-import qualified Prelude          as P
+import qualified Prelude      as P
 
 data Config = Config {
   configBakerAddress :: T.Text,

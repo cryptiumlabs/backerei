@@ -4,7 +4,6 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Monad
-import qualified Data.Aeson                   as A
 import           Data.Function                (on)
 import qualified Data.Text                    as T
 import qualified Data.Text.IO                 as T
@@ -15,11 +14,9 @@ import qualified Prelude                      as P
 import qualified Servant.Client               as TG
 import           System.Directory
 import           System.Exit
-import qualified System.Process               as P
 import qualified Telegram.Bot.API             as TG
 import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
 
-import qualified Backerei.Delegation          as Delegation
 import qualified Backerei.RPC                 as RPC
 import qualified Backerei.Types               as RPC
 
@@ -75,7 +72,7 @@ run (Options configPath command) = do
           waitUntil height = do
             let helper prev = do
                   [head]:_ <- RPC.blocks conf
-                  if Just head == prev then threadDelay (P.round 1e6) >> helper prev else do
+                  if Just head == prev then threadDelay (P.round (1e6 :: Double)) >> helper prev else do
                     header <- RPC.header conf head
                     T.putStrLn $ T.concat ["Current height: ", T.pack $ P.show $ RPC.headerLevel header]
                     if RPC.headerLevel header == height then return head else do
@@ -87,7 +84,7 @@ run (Options configPath command) = do
                         Just (TelegramConfig token channel) -> do
                           env <- TG.defaultTelegramClientEnv (TG.Token token)
                           return $ \msg -> do
-                            TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channel) msg Nothing Nothing Nothing Nothing Nothing)) env
+                            _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channel) msg Nothing Nothing Nothing Nothing Nothing)) env
                             T.putStrLn msg
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
@@ -112,8 +109,8 @@ run (Options configPath command) = do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
               [] -> sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
-              ops -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
-          Left b -> do
+              _ -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
+          Left _ -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
