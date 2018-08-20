@@ -34,7 +34,8 @@ hashToQuery config cycle cycleLength = do
   (BlockHeader hashHead levelHead) <- RPC.header config RPC.head
   currentLevel <- RPC.currentLevel config hashHead
   let blocksAgo = cycleLength P.* (levelCycle currentLevel - cycle)
-  blockHashByLevel config (levelHead P.- blocksAgo)
+      levelToQuery = min (levelHead P.- blocksAgo) levelHead
+  blockHashByLevel config levelToQuery
 
 snapshotHeight :: Int -> Int -> Int -> Int -> Int
 snapshotHeight cycle snapshot cycleLength snapshotInterval = (cycle - 7) * cycleLength + ((snapshot + 1) * snapshotInterval)
