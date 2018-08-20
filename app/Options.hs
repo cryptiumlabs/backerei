@@ -16,7 +16,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text Rational T.Text T.Text Int |
+  Init T.Text T.Text Int T.Text Rational T.Text T.Text Int Int Int |
   Status |
   Monitor |
   Payout Bool
@@ -40,7 +40,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> startingCycleOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -65,6 +65,12 @@ clientPathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help 
 
 startingCycleOptions :: Parser Int
 startingCycleOptions = option auto (long "starting-cycle" <> metavar "CYCLE" <> help "Cycle at which baker became a delegate")
+
+cycleLengthOptions :: Parser Int
+cycleLengthOptions = option auto (long "cycle-length" <> metavar "BLOCKS" <> help "Length of a single cycle in blocks" <> showDefault <> value 4096)
+
+snapshotIntervalOptions :: Parser Int
+snapshotIntervalOptions = option auto (long "snapshot-interval" <> metavar "BLOCKS" <> help "Interval between snapshots in blocks" <> showDefault <> value 256)
 
 statusOptions ∷ Parser Command
 statusOptions = pure Status

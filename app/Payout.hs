@@ -17,15 +17,15 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> IO ()
-payout (Config baker host port from fee databasePath clientPath startingCycle _) noDryRun = do
+payout (Config baker host port from fee databasePath clientPath startingCycle cycleLength snapshotInterval _) noDryRun = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
         if M.member cycle payouts then return (db, False) else do
           T.putStrLn $ T.concat ["Updating DB with estimates for cycle ", T.pack $ P.show cycle, "..."]
-          estimatedRewards <- Delegation.estimatedRewards conf cycle baker
-          ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, stakingBalance) <- Delegation.calculateRewardsFor conf cycle baker estimatedRewards fee
+          estimatedRewards <- Delegation.estimatedRewards conf cycleLength snapshotInterval cycle baker
+          ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, stakingBalance) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker estimatedRewards fee
           let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
               delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance payout Nothing Nothing)) calculated
               cyclePayout = CyclePayout stakingBalance fee estimatedRewards bakerRewards [] Nothing Nothing delegators
@@ -45,9 +45,10 @@ payout (Config baker host port from fee databasePath clientPath startingCycle _)
               return (db, False)
             else do
               T.putStrLn $ T.concat ["Updating DB with actual earnings for cycle ", T.pack $ P.show cycle, "..."]
-              stolen <- Delegation.stolenBlocks conf cycle baker
+              stolen <- Delegation.stolenBlocks conf cycleLength snapshotInterval cycle baker
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
-              frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf "head" baker
+              hash <- Delegation.hashToQuery conf cycle cycleLength
+              frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
                   extraRewards = feeRewards
@@ -58,7 +59,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle _)
                   estimatedDifference = estimatedRewards P.- paidRewards
                   finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
               if estimatedDifference > 0 then fail "should not happen: positive difference" else return ()
-              ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycle baker paidRewards fee
+              ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycle cycleLength snapshotInterval baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
                   delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance (delegatorEstimatedRewards $ estimatedDelegators M.! addr) (Just payout) Nothing)) calculated
