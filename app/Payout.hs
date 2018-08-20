@@ -47,7 +47,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
               T.putStrLn $ T.concat ["Updating DB with actual earnings for cycle ", T.pack $ P.show cycle, "..."]
               stolen <- Delegation.stolenBlocks conf cycleLength cycle baker
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
-              hash <- Delegation.hashToQuery conf cycle cycleLength
+              hash <- Delegation.hashToQuery conf (cycle + 1) cycleLength
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
