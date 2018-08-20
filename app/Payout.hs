@@ -79,15 +79,20 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
-                let cmd = [clientPath, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0", "-q", "-w", "none"]
+                let cmd = [clientPath, "-w", "none", "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
                 T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
                 let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
                 (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
                 if code /= ExitSuccess then do
                   T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+                  exitFailure
                 else do
-                  T.putStrLn $ T.pack stdout
-                return delegator
+                  let lines   = T.lines $ T.pack stdout
+                      start   = "Operation hash: "
+                      [line]  = filter (\l -> T.take (T.length start) l == start) lines
+                      hash    = T.drop (T.length start) line
+                  T.putStrLn $ T.concat ["Operation hash: ", hash]
+                  return delegator { delegatorPayoutOperationHash = Just hash }
               else return delegator
             return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
