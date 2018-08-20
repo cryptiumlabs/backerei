@@ -89,7 +89,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
                   T.putStrLn $ T.pack stdout
                 return delegator
               else return delegator
-            return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, True)
+            return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
         case M.lookup cycle payouts of
