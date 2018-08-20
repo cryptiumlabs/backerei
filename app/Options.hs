@@ -16,7 +16,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text Rational T.Text T.Text |
+  Init T.Text T.Text Int T.Text Rational T.Text T.Text Int |
   Status |
   Monitor |
   Payout Bool
@@ -40,7 +40,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> startingCycleOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -62,6 +62,9 @@ dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPAT
 
 clientPathOptions :: Parser T.Text
 clientPathOptions = T.pack <$> strOption (long "path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
+
+startingCycleOptions :: Parser Int
+startingCycleOptions = option auto (long "starting-cycle" <> metavar "CYCLE" <> help "Cycle at which baker became a delegate")
 
 statusOptions ∷ Parser Command
 statusOptions = pure Status

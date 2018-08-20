@@ -17,7 +17,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> IO ()
-payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
+payout (Config baker host port from fee databasePath clientPath startingCycle _) noDryRun = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -34,7 +34,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
             knownCycle   = currentCycle + 5
-        foldFirst db (fmap maybeUpdateEstimatesForCycle [11 .. knownCycle])
+        foldFirst db (fmap maybeUpdateEstimatesForCycle [startingCycle .. knownCycle])
 
       maybeUpdateActualForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
@@ -68,7 +68,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
             knownCycle   = currentCycle - 1
-        foldFirst db (fmap maybeUpdateActualForCycle [11 .. knownCycle])
+        foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
 
       maybePayoutDelegatorForCycle cycle (address, delegator) db = do
         case delegatorPayoutOperationHash delegator of
@@ -100,7 +100,7 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
             unlockedCycle = currentCycle - 6
-        foldFirst db (fmap maybePayoutForCycle [11 .. unlockedCycle])
+        foldFirst db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
       step databasePath db = do
         case db of
