@@ -40,8 +40,8 @@ hashToQuery config cycle cycleLength = do
 snapshotHeight :: Int -> Int -> Int -> Int -> Int
 snapshotHeight cycle snapshot cycleLength snapshotInterval = (cycle - 7) * cycleLength + ((snapshot + 1) * snapshotInterval)
 
-estimatedRewards :: RPC.Config -> Int -> Int -> Int -> T.Text -> IO Tezzies
-estimatedRewards config cycleLength snapshotInterval cycle delegate = do
+estimatedRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
+estimatedRewards config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   bakingRights <- filter ((==) 0 . bakingPriority) `fmap` RPC.bakingRightsFor config hash delegate cycle
   endorsingRights <- RPC.endorsingRightsFor config hash delegate cycle
@@ -57,11 +57,11 @@ blockHashByLevel :: RPC.Config -> Int -> IO T.Text
 blockHashByLevel config level = do
   (BlockHeader hashHead levelHead) <- RPC.header config RPC.head
   (BlockHeader hash' level') <- RPC.header config (T.concat [hashHead, "~", T.pack $ P.show $ levelHead - level])
-  if level /= level' then error "should not happen: tezos rpc fault" else return ()
+  if level /= level' then error "should not happen: tezos rpc fault, wrong level" else return ()
   return hash'
 
-stolenBlocks :: RPC.Config -> Int -> Int -> Int -> T.Text -> IO [(Int, T.Text, Int, Tezzies, Tezzies)]
-stolenBlocks config cycleLength snapshotInterval cycle delegate = do
+stolenBlocks :: RPC.Config -> Int -> Int -> T.Text -> IO [(Int, T.Text, Int, Tezzies, Tezzies)]
+stolenBlocks config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   bakingRights <- filter ((<) 0 . bakingPriority) `fmap` RPC.bakingRightsFor config hash delegate cycle
   stolen <- mconcat `fmap` (flip mapM bakingRights $ \(BakingRight _ priority _ level) -> do

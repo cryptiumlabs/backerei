@@ -24,7 +24,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
         let payouts = dbPayoutsByCycle db
         if M.member cycle payouts then return (db, False) else do
           T.putStrLn $ T.concat ["Updating DB with estimates for cycle ", T.pack $ P.show cycle, "..."]
-          estimatedRewards <- Delegation.estimatedRewards conf cycleLength snapshotInterval cycle baker
+          estimatedRewards <- Delegation.estimatedRewards conf cycleLength cycle baker
           ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, stakingBalance) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker estimatedRewards fee
           let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
               delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance payout Nothing Nothing)) calculated
@@ -45,7 +45,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
               return (db, False)
             else do
               T.putStrLn $ T.concat ["Updating DB with actual earnings for cycle ", T.pack $ P.show cycle, "..."]
-              stolen <- Delegation.stolenBlocks conf cycleLength snapshotInterval cycle baker
+              stolen <- Delegation.stolenBlocks conf cycleLength cycle baker
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
               hash <- Delegation.hashToQuery conf cycle cycleLength
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
@@ -59,7 +59,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
                   estimatedDifference = estimatedRewards P.- paidRewards
                   finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
               if estimatedDifference > 0 then fail "should not happen: positive difference" else return ()
-              ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycle cycleLength snapshotInterval baker paidRewards fee
+              ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
                   delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance (delegatorEstimatedRewards $ estimatedDelegators M.! addr) (Just payout) Nothing)) calculated
