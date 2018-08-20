@@ -68,9 +68,21 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
             knownCycle   = currentCycle - 1
         foldFirst db (fmap maybeUpdateActualForCycle [11 .. knownCycle])
 
+      maybePayoutDelegatorForCycle cycle (address, delegator) db = do
+        case delegatorPayoutOperationHash delegator of
+          Just _  -> return (db, False)
+          Nothing -> do
+            let Just amount = delegatorFinalRewards delegator
+            T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
+            let updatedDelegator = delegator
+            return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, True)
       maybePayoutForCycle cycle db = do
-        T.putStrLn $ T.concat ["Executing payouts for cycle ", T.pack $ P.show cycle, "..."]
-        undefined
+        let payouts = dbPayoutsByCycle db
+        case M.lookup cycle payouts of
+          Nothing -> error "should not happen: missed lookup"
+          Just cyclePayout -> do
+            let delegators = cycleDelegators cyclePayout
+            foldFirst db (fmap (maybePayoutDelegatorForCycle cycle) (M.toList delegators))
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
