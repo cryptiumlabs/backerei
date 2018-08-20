@@ -6,6 +6,8 @@ import qualified Data.Text           as T
 import qualified Data.Text.IO        as T
 import           Foundation
 import qualified Prelude             as P
+import           System.Exit
+import qualified System.Process      as P
 
 import qualified Backerei.Delegation as Delegation
 import qualified Backerei.RPC        as RPC
@@ -74,7 +76,18 @@ payout (Config baker host port from fee databasePath clientPath _) noDryRun = do
           Nothing -> do
             let Just amount = delegatorFinalRewards delegator
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
-            let updatedDelegator = delegator
+            updatedDelegator <-
+              if noDryRun then do
+                let cmd = [clientPath, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0", "-q", "-w", "none"]
+                T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
+                let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
+                (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
+                if code /= ExitSuccess then do
+                  T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+                else do
+                  T.putStrLn $ T.pack stdout
+                return delegator
+              else return delegator
             return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, True)
       maybePayoutForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
@@ -107,20 +120,3 @@ foldFirst obj [] = return (obj, False)
 foldFirst obj (act:rest) = do
   (new, updated) <- act obj
   if updated then return (new, updated) else foldFirst obj rest
-
-  {-
-  forM_ (drop 1 calculated) $ \(x, y) -> do
-    T.putStrLn $ T.concat [x, " should be paid ", T.pack $ P.show y]
-  -}
-    {-
-    let cmd = [path, "transfer", T.pack $ P.show y, "from", from, "to", x, "--fee", "0.0"]
-    T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
-    if noDryRun then do
-      let proc = P.proc (T.unpack path) $ drop 1 $ fmap T.unpack cmd
-      (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
-      if code /= ExitSuccess then do
-        T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
-      else do
-        T.putStrLn $ T.pack stdout
-    else return ()
-    -}
