@@ -16,6 +16,7 @@ data Config = Config {
   configFee              :: Rational,
   configDatabasePath     :: T.Text,
   configClientPath       :: T.Text,
+  configClientConfigFile :: T.Text,
   configStartingCycle    :: Int,
   configCycleLength      :: Int,
   configSnapshotInterval :: Int,

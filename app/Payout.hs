@@ -17,7 +17,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> IO ()
-payout (Config baker host port from fee databasePath clientPath startingCycle cycleLength snapshotInterval _) noDryRun = do
+payout (Config baker host port from fee databasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -79,7 +79,7 @@ payout (Config baker host port from fee databasePath clientPath startingCycle cy
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
-                let cmd = [clientPath, "-w", "none", "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
+                let cmd = [clientPath, "-c", clientConfigFile, "-w", "none", "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
                 T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
                 let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
                 (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
