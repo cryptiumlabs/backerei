@@ -20,7 +20,7 @@ getContributingBalancesFor config cycleLength snapshotInterval cycle delegate = 
       selfBalance = fullBalance P.- totalFrozenRewards
   stakingBalance <- RPC.stakingBalanceAt config snapshotBlockHash delegate
   if selfBalance P.+ P.sum balances /= stakingBalance then error "should not happen" else return ()
-  return (((delegate, selfBalance) : zip delegators balances), stakingBalance)
+  return (filter ((<) 0 . snd) ((delegate, selfBalance) : zip delegators balances), stakingBalance)
 
 snapshotHash :: RPC.Config -> Int -> Int -> Int -> IO T.Text
 snapshotHash config cycle cycleLength snapshotInterval = do
