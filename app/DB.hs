@@ -15,14 +15,20 @@ import qualified System.Directory         as D
 import           Backerei.Types           (Tezzies)
 
 withDB :: forall a . P.FilePath -> (Maybe DB -> IO (DB, a)) -> IO a
-withDB path func = do
+withDB = withFile
+
+withAccountDB :: forall a . P.FilePath -> (Maybe AccountDB -> IO (AccountDB, a)) -> IO a
+withAccountDB = withFile
+
+withFile :: forall a b . (A.ToJSON b, A.FromJSON b) => P.FilePath -> (Maybe b -> IO (b, a)) -> IO a
+withFile path func = do
   exists <- D.doesFileExist path
   (updated, other) <- do
     if exists then do
       prev <- BL.readFile path
       case A.decode prev of
-        Just config -> func config
-        Nothing     -> error "could not decode DB"
+        Just db -> func db
+        Nothing -> error "could not decode DB"
     else do
       func Nothing
   BL.writeFile path $ A.encodePretty' prettyConfig updated
@@ -33,6 +39,28 @@ prettyConfig = A.Config (A.Spaces 4) A.compare A.Generic False
 
 data DB = DB {
   dbPayoutsByCycle :: M.Map Int CyclePayout
+} deriving (Generic, Show)
+
+data AccountDB = AccountDB {
+  accountsPreferred :: [AccountInfo],
+  accountRemainder  :: AccountInfo
+} deriving (Generic, Show)
+
+data AccountInfo = AccountInfo {
+  accountName     :: T.Text,
+  accountFundings :: [AccountFunding],
+  accountHistory  :: M.Map Int AccountCycleState
+} deriving (Generic, Show)
+
+data AccountFunding = AccountFunding {
+  fundingBlock  :: Int,
+  fundingAmount :: Tezzies
+} deriving (Generic, Show)
+
+data AccountCycleState = AccountCycleState {
+  accountBalance          :: Tezzies,
+  accountEstimatedRewards :: Tezzies,
+  accountFinalRewards     :: Maybe Tezzies
 } deriving (Generic, Show)
 
 data CyclePayout = CyclePayout {
@@ -79,6 +107,34 @@ instance A.FromJSON DB where
   parseJSON = customParseJSON
 
 instance A.ToJSON DB where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON AccountDB where
+  parseJSON = customParseJSON
+
+instance A.ToJSON AccountDB where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON AccountInfo where
+  parseJSON = customParseJSON
+
+instance A.ToJSON AccountInfo where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON AccountFunding where
+  parseJSON = customParseJSON
+
+instance A.ToJSON AccountFunding where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON AccountCycleState where
+  parseJSON = customParseJSON
+
+instance A.ToJSON AccountCycleState where
   toJSON = customToJSON
   toEncoding = customToEncoding
 

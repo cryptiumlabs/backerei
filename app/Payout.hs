@@ -17,7 +17,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> IO ()
-payout (Config baker host port from fee databasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun = do
+payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
