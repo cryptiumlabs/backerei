@@ -43,7 +43,7 @@ data DB = DB {
 
 data AccountDB = AccountDB {
   accountsPreferred :: [AccountInfo],
-  accountRemainder  :: AccountInfo
+  accountRemainder  :: Maybe AccountInfo
 } deriving (Generic, Show)
 
 data AccountInfo = AccountInfo {

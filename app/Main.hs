@@ -14,6 +14,7 @@ import qualified Prelude                      as P
 import qualified Servant.Client               as TG
 import           System.Directory
 import           System.Exit
+import           System.IO
 import qualified Telegram.Bot.API             as TG
 import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
 
@@ -116,7 +117,16 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else do
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout noDryRun -> withConfig $ flip payout noDryRun
+    Payout noDryRun -> do
+      fromPassword <- do
+        hSetEcho stdin False
+        System.IO.putStr "Enter source account password: "
+        hFlush stdout
+        pass <- getLine
+        putChar '\n'
+        hSetEcho stdin True
+        return pass
+      withConfig $ \c -> payout c noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword)
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [

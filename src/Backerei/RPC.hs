@@ -56,6 +56,12 @@ stakingBalanceAt config hash delegate = get config ["chains", "main", "blocks", 
 balanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "balance"] mempty
 
+counter :: Config -> T.Text -> T.Text -> IO Int
+counter config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "counter"] mempty
+
+managerKey :: Config -> T.Text -> T.Text -> IO T.Text
+managerKey config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "manager_key"] mempty
+
 bakingRightsFor :: Config -> T.Text -> T.Text -> Int -> IO [BakingRight]
 bakingRightsFor config hash delegate cycle = get config ["chains", "main", "blocks", hash, "helpers", "baking_rights"]
   ("delegate" R.=: delegate <> "cycle" R.=: cycle)

@@ -16,8 +16,8 @@ import qualified Backerei.Types      as RPC
 import           Config
 import           DB
 
-payout :: Config -> Bool -> IO ()
-payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun = do
+payout :: Config -> Bool -> Maybe T.Text -> IO ()
+payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -79,10 +79,10 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
-                let cmd = [clientPath, "-c", clientConfigFile, "-w", "none", "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
+                let cmd = [clientPath, "-c", clientConfigFile, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
                 T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
                 let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
-                (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc ""
+                (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc (T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
                 if code /= ExitSuccess then do
                   T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
                   exitFailure
@@ -119,7 +119,22 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         updated <- withDB (T.unpack databasePath) (step databasePath)
         unless (not updated) loop
 
+      stepAccounts accountDatabasePath db = do
+        case db of
+          Nothing -> do
+            T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
+            return (AccountDB [] Nothing, True)
+          Just prev -> do
+            foldFirst prev []
+      loopAccounts path = do
+        updated <- withAccountDB (T.unpack path) (stepAccounts path)
+        unless (not updated) (loopAccounts path)
+
   loop
+
+  case accountDatabasePath of
+    Just path -> loopAccounts path
+    Nothing   -> return ()
 
 foldFirst :: a -> [a -> IO (a, Bool)] -> IO (a, Bool)
 foldFirst obj [] = return (obj, False)
