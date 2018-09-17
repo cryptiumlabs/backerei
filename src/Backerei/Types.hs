@@ -81,14 +81,20 @@ data CycleInfo = CycleInfo {
 } deriving (Generic, Show)
 
 data Operation = Operation {
+  operationHash     :: T.Text,
+  operationProtocol :: T.Text,
+  operationBranch   :: T.Text,
   operationContents :: [OperationContents]
 } deriving (Generic, Show)
 
 data OperationContents = OperationContents {
-  opcontentsKind     :: T.Text,
-  opcontentsFee      :: Maybe Tezzies,
-  opcontentsLevel    :: Maybe Int,
-  opcontentsMetadata :: OperationMetadata
+  opcontentsKind        :: T.Text,
+  opcontentsFee         :: Maybe Tezzies,
+  opcontentsLevel       :: Maybe Int,
+  opcontentsMetadata    :: OperationMetadata,
+  opcontentsSource      :: Maybe T.Text,
+  opcontentsDestination :: Maybe T.Text,
+  opcontentsAmount      :: Maybe Tezzies
 } deriving (Generic, Show)
 
 data OperationMetadata = OperationMetadata {
@@ -138,6 +144,7 @@ instance A.FromJSON BalanceUpdate where
 jsonOptions ∷ A.Options
 jsonOptions = A.defaultOptions {
   A.fieldLabelModifier = concatMap (\(i, c) -> if i > (0 :: Int) && isUpper c then ['_', toLower c] else [toLower c]) . (zip [0..]) . dropWhile isLower,
+  A.constructorTagModifier = (\(x:xs) -> toLower x : xs),
   A.omitNothingFields  = True,
   A.sumEncoding        = A.ObjectWithSingleField
 }

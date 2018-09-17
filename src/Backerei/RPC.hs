@@ -30,7 +30,7 @@ metadata :: Config -> T.Text -> IO BlockMetadata
 metadata config hash = get config ["chains", "main", "blocks", hash, "metadata"] mempty
 
 operations :: Config -> T.Text -> IO [Operation]
-operations config hash = P.head `fmap` get config ["chains", "main", "blocks", hash, "operations"] mempty
+operations config hash = P.concat `fmap` (get config ["chains", "main", "blocks", hash, "operations"] mempty :: IO [[Operation]])
 
 cycleInfo :: Config -> T.Text -> Int -> IO CycleInfo
 cycleInfo config hash cycle = get config ["chains", "main", "blocks", hash, "context", "raw", "json", "cycle", T.pack (P.show cycle)] mempty

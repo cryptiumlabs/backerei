@@ -108,6 +108,23 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             unlockedCycle = currentCycle - 6
         foldFirst db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
+      maybeFetchOperationsByLevel level db = do
+        T.putStrLn $ T.concat ["Scanning operations in level ", T.pack $ P.show level, "..."]
+        hash <- Delegation.blockHashByLevel conf level
+        operations <- RPC.operations conf hash
+        let assoc     = P.concatMap (\o -> fmap ((,) (RPC.operationHash o)) (RPC.operationContents o)) operations
+            matching  = P.filter (\(_, contents) -> RPC.opcontentsKind contents == "transaction" && (RPC.opcontentsSource contents == Just baker || RPC.opcontentsDestination contents == Just baker)) assoc
+        txs <- flip mapM matching $ \(hash, contents) -> do
+          T.putStrLn $ T.concat ["Enter account name for operation: ", T.pack $ P.show (hash, contents), ":"]
+          account <- T.getLine
+          let kind = if RPC.opcontentsSource contents == Just baker then Debit else Credit
+          return $ AccountTx hash account kind level (let Just a = RPC.opcontentsAmount contents in a)
+        return (db { accountLastBlockScanned = level, accountTxs = accountTxs db P.++ txs }, True)
+      maybeFetchOperations db = do
+        currentLevel <- RPC.currentLevel conf RPC.head
+        let level = RPC.levelLevel currentLevel
+        foldFirst db (fmap maybeFetchOperationsByLevel [(accountLastBlockScanned db + 1) .. level])
+
       step databasePath db = do
         case db of
           Nothing -> do
@@ -123,9 +140,11 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         case db of
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
-            return (AccountDB [] Nothing, True)
+            return (AccountDB (-1) [] M.empty (AccountInfo 0 M.empty), True)
           Just prev -> do
-            foldFirst prev []
+            -- Scan all transactions, request classification.
+            -- Calculate rewards & updated balances.
+            foldFirst prev [maybeFetchOperations]
       loopAccounts path = do
         updated <- withAccountDB (T.unpack path) (stepAccounts path)
         unless (not updated) (loopAccounts path)

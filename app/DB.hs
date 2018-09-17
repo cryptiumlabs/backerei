@@ -42,20 +42,26 @@ data DB = DB {
 } deriving (Generic, Show)
 
 data AccountDB = AccountDB {
-  accountsPreferred :: [AccountInfo],
-  accountRemainder  :: Maybe AccountInfo
+  accountLastBlockScanned :: Int,
+  accountTxs              :: [AccountTx],
+  accountsPreferred       :: M.Map T.Text AccountInfo,
+  accountRemainder        :: AccountInfo
 } deriving (Generic, Show)
 
 data AccountInfo = AccountInfo {
-  accountName     :: T.Text,
-  accountFundings :: [AccountFunding],
-  accountHistory  :: M.Map Int AccountCycleState
+  accountSplit   :: Rational,
+  accountHistory :: M.Map Int AccountCycleState
 } deriving (Generic, Show)
 
-data AccountFunding = AccountFunding {
-  fundingBlock  :: Int,
-  fundingAmount :: Tezzies
+data AccountTx = AccountTx {
+  txOperation :: T.Text,
+  txAccount   :: T.Text,
+  txKind      :: TxKind,
+  txBlock     :: Int,
+  txAmount    :: Tezzies
 } deriving (Generic, Show)
+
+data TxKind = Debit | Credit deriving (Generic, Show)
 
 data AccountCycleState = AccountCycleState {
   accountBalance          :: Tezzies,
@@ -124,10 +130,17 @@ instance A.ToJSON AccountInfo where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
-instance A.FromJSON AccountFunding where
+instance A.FromJSON AccountTx where
   parseJSON = customParseJSON
 
-instance A.ToJSON AccountFunding where
+instance A.ToJSON AccountTx where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON TxKind where
+  parseJSON = customParseJSON
+
+instance A.ToJSON TxKind where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
@@ -176,6 +189,7 @@ instance A.ToJSON StolenBlock where
 jsonOptions ∷ A.Options
 jsonOptions = A.defaultOptions {
   A.fieldLabelModifier = (\(h:t) -> toLower h : t) . dropWhile isLower,
+  A.constructorTagModifier = (\(x:xs) -> toLower x : xs),
   A.omitNothingFields  = True,
   A.sumEncoding        = A.ObjectWithSingleField
 }
