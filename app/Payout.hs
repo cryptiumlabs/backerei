@@ -1,17 +1,20 @@
 module Payout where
 
+import           Control.Concurrent
 import           Control.Monad
-import qualified Data.Map            as M
-import qualified Data.Text           as T
-import qualified Data.Text.IO        as T
+import qualified Data.ByteString.Char8 as B
+import qualified Data.Map              as M
+import qualified Data.Text             as T
+import qualified Data.Text.IO          as T
 import           Foundation
-import qualified Prelude             as P
+import qualified Prelude               as P
 import           System.Exit
-import qualified System.Process      as P
+import qualified System.Posix.Pty      as P
+import qualified System.Process        as P
 
-import qualified Backerei.Delegation as Delegation
-import qualified Backerei.RPC        as RPC
-import qualified Backerei.Types      as RPC
+import qualified Backerei.Delegation   as Delegation
+import qualified Backerei.RPC          as RPC
+import qualified Backerei.Types        as RPC
 
 import           Config
 import           DB
@@ -82,12 +85,25 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
                 let cmd = [clientPath, "-c", clientConfigFile, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
                 T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
                 let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
-                (code, stdout, stderr) <- P.readCreateProcessWithExitCode proc (T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
+                --(code, stdout, stderr) <- P.readCreateProcessWithExitCode proc (T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
+                (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (drop 1 $ fmap T.unpack cmd) (300, 300)
+                threadDelay (P.round 1e6)
+                P.threadWaitReadPty pty
+                stderr <- P.readPty pty
+                P.print stderr
+                P.threadWaitWritePty pty
+                P.writePty pty (B.pack $ T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
+                threadDelay (P.round 1e6)
+                code <- P.waitForProcess handle
+                P.print code
+                stdout <- P.readPty pty
+                P.print stdout
+                P.closePty pty
                 if code /= ExitSuccess then do
                   T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
                   exitFailure
                 else do
-                  let lines   = T.lines $ T.pack stdout
+                  let lines   = T.lines $ T.pack $ B.unpack stdout
                       start   = "Operation hash: "
                       [line]  = filter (\l -> T.take (T.length start) l == start) lines
                       hash    = T.drop (T.length start) line

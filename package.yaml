@@ -74,6 +74,7 @@ executables:
     - servant-client
     - process
     - aeson-pretty
+    - posix-pty
 
 tests:
   backerei-test:
