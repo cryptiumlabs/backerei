@@ -82,33 +82,33 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
-                let cmd = [clientPath, "-c", clientConfigFile, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
-                T.putStrLn $ T.concat ["Running '", T.intercalate " " cmd, "'"]
-                let proc = P.proc (T.unpack clientPath) $ drop 1 $ fmap T.unpack cmd
-                --(code, stdout, stderr) <- P.readCreateProcessWithExitCode proc (T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
-                (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (drop 1 $ fmap T.unpack cmd) (300, 300)
-                threadDelay (P.round 1e6)
+                let args = ["-c", clientConfigFile, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
+                T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a pty"]
+                (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (fmap T.unpack args) (80, 80)
+                waitASecond
                 P.threadWaitReadPty pty
                 stderr <- P.readPty pty
-                P.print stderr
                 P.threadWaitWritePty pty
                 P.writePty pty (B.pack $ T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
-                threadDelay (P.round 1e6)
+                waitASecond
                 code <- P.waitForProcess handle
-                P.print code
                 stdout <- P.readPty pty
-                P.print stdout
                 P.closePty pty
                 if code /= ExitSuccess then do
                   T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
                   exitFailure
                 else do
-                  let lines   = T.lines $ T.pack $ B.unpack stdout
-                      start   = "Operation hash: "
-                      [line]  = filter (\l -> T.take (T.length start) l == start) lines
-                      hash    = T.drop (T.length start) line
-                  T.putStrLn $ T.concat ["Operation hash: ", hash]
-                  return delegator { delegatorPayoutOperationHash = Just hash }
+                  let lines     = T.lines $ T.pack $ B.unpack stdout
+                      start     = "Operation hash: "
+                      filtered  = filter (\l -> T.take (T.length start) l == start) lines
+                  case filtered of
+                    [line] -> do
+                      let hash = T.drop (T.length start) line
+                      T.putStrLn $ T.concat ["Operation hash: ", hash]
+                      return delegator { delegatorPayoutOperationHash = Just hash }
+                    _ -> do
+                      T.putStrLn $ T.concat ["Expected operation hash but not found!"]
+                      exitFailure
               else return delegator
             return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
@@ -170,6 +170,9 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
   case accountDatabasePath of
     Just path -> loopAccounts path
     Nothing   -> return ()
+
+waitASecond :: IO ()
+waitASecond = threadDelay (P.round (1e6 :: Double))
 
 foldFirst :: a -> [a -> IO (a, Bool)] -> IO (a, Bool)
 foldFirst obj [] = return (obj, False)
