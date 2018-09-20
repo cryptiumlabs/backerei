@@ -103,7 +103,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
                       filtered  = filter (\l -> T.take (T.length start) l == start) lines
                   case filtered of
                     [line] -> do
-                      let hash = T.drop (T.length start) line
+                      let hash = T.drop (T.length start) $ T.filter ((/=) '\r') line
                       T.putStrLn $ T.concat ["Operation hash: ", hash]
                       return delegator { delegatorPayoutOperationHash = Just hash }
                     _ -> do
