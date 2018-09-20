@@ -124,6 +124,67 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             unlockedCycle = currentCycle - 6
         foldFirst db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
+      -- TODO: Should be added to balance when released, five cycles after.
+      maybeCalculateBalancesByCycle mainDB cycle db = do
+        let history = accountHistory db
+            unlockedCycle = cycle - 6
+        case M.lookup cycle history of
+          Just _  -> return (db, False)
+          Nothing -> do
+            T.putStrLn $ T.concat ["Calculating balances for cycle ", T.pack $ P.show cycle, "..."]
+            snapshot <- Delegation.snapshotLevel conf cycle cycleLength snapshotInterval
+            let cycleStart = (cycle - 1) P.* cycleLength
+                previousState     = M.lookup (cycle - 1) history
+                snapshotState     = M.lookup (cycle - 6) history
+                previousHeight    = case previousState of Just s -> stateStartHeight s; Nothing -> 0
+                previousRemainder = case previousState of Just s -> accountStartingBalance (stateRemainder s); Nothing -> 0
+                txs = P.filter (\tx -> let b = txBlock tx in b >= previousHeight && b < cycleStart) (accountTxs db)
+                difference acct   = P.sum $ fmap (\tx -> (case txKind tx of Debit -> -1; Credit -> 1) P.* txAmount tx) $ P.filter ((==) acct . txAccount) txs
+                previousBalance acct = case previousState of Just s -> (case M.lookup acct (statePreferred s) of Just x -> accountFinalBalance x; Nothing -> 0); Nothing -> 0
+                snapshotBalance acct = case snapshotState of Just s -> (case M.lookup acct (statePreferred s) of Just x -> accountFinalBalance x; Nothing -> 0); Nothing -> 0
+                remainderDiff = difference ""
+                initialRemainderBalance = previousRemainder P.+ remainderDiff
+            snapshotHash <- Delegation.blockHashByLevel conf snapshot
+            totalBalance <- RPC.delegateBalanceAt conf snapshotHash baker
+            T.putStrLn $ T.concat ["Total balance: ", T.pack $ P.show totalBalance]
+            T.putStrLn $ T.concat ["Difference for remainder account: ", T.pack $ P.show remainderDiff, ", initial balance for remainder account: ", T.pack $ P.show initialRemainderBalance]
+            let (estimatedBakerRewards, estimatedOtherRewards, finalBakerRewards) =
+                  case M.lookup unlockedCycle (dbPayoutsByCycle mainDB) of
+                    Just cycleRewards ->
+                      let estimatedBakerRewards = cycleEstimatedBakerRewards cycleRewards
+                          estimatedOtherRewards = bakerTotalRewards estimatedBakerRewards P.- bakerBondRewards estimatedBakerRewards
+                          Just finalBakerRewards = cycleFinalBakerRewards cycleRewards
+                      in (estimatedBakerRewards, estimatedOtherRewards, finalBakerRewards)
+                    Nothing -> (BakerRewards 0 0 0 0, 0, BakerRewards 0 0 0 0)
+            (totalPreferred, totalNet, afterRewards) <- flip foldM (0, 0, []) (\(rewards, balance, states) (name, ratio) -> do
+              let previous = previousBalance name
+                  diff = difference name
+                  net = previous P.+ diff
+                  pastNet = snapshotBalance name
+                  fraction = pastNet P./ totalBalance
+                  bondRewards = bakerBondRewards estimatedBakerRewards P.* fraction
+                  otherRewards = estimatedOtherRewards P.* fraction P.* P.fromRational ratio
+                  totalRewards = bondRewards P.+ otherRewards
+              T.putStrLn $ T.concat ["Initial balance for account ", name, ": ", T.pack $ P.show previous, ", difference: ", T.pack $ P.show diff, ", net now: ", T.pack $ P.show net,
+                ", net at snapshot: ", T.pack $ P.show pastNet, ", fraction: ", T.pack $ P.show fraction, ", split: ", T.pack $ P.show ratio, ", bond rewards: ",
+                T.pack $ P.show bondRewards, ", other rewards: ", T.pack $ P.show otherRewards, ", total rewards: ", T.pack $ P.show totalRewards]
+              let cycleState = AccountCycleState net totalRewards (net P.+ totalRewards)
+              return (rewards P.+ totalRewards, balance P.+ (net P.+ totalRewards), (name, cycleState) : states)) (accountsPreferred db)
+            T.putStrLn $ T.concat ["Total rewards: ", T.pack $ P.show $ bakerTotalRewards estimatedBakerRewards, ", other rewards: ", T.pack $ P.show estimatedOtherRewards,
+              ", total preferred: ", T.pack $ P.show totalPreferred, ", total net: ", T.pack $ P.show totalNet]
+            let remainderRewards = bakerTotalRewards finalBakerRewards P.- totalPreferred
+            cycleStartHash <- Delegation.blockHashByLevel conf cycleStart
+            remainderBalance <- RPC.delegateBalanceAt conf cycleStartHash baker
+            let remainderNet = remainderBalance P.- totalNet
+            T.putStrLn $ T.concat ["Remainder realized rewards: ", T.pack $ P.show remainderRewards, ", remainder net: ", T.pack $ P.show remainderNet]
+            let state = AccountsState cycleStart (M.fromList afterRewards) (AccountCycleState initialRemainderBalance remainderRewards remainderNet)
+            return (db { accountHistory = M.insert cycle state $ accountHistory db }, True)
+      maybeCalculateBalances mainDB db = do
+        currentLevel <- RPC.currentLevel conf RPC.head
+        let currentCycle  = RPC.levelCycle currentLevel
+            knownCycle    = currentCycle - 1
+        foldFirst db (fmap (maybeCalculateBalancesByCycle mainDB) [startingCycle .. knownCycle])
+
       maybeFetchOperationsByLevel level db = do
         T.putStrLn $ T.concat ["Scanning operations in level ", T.pack $ P.show level, "..."]
         hash <- Delegation.blockHashByLevel conf level
@@ -153,14 +214,14 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         unless (not updated) loop
 
       stepAccounts accountDatabasePath db = do
+        mainDB <- mustReadDB (T.unpack databasePath)
         case db of
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
-            return (AccountDB (-1) [] M.empty (AccountInfo 0 M.empty), True)
+            return (AccountDB (-1) [] [] M.empty, True)
           Just prev -> do
-            -- Scan all transactions, request classification.
             -- Calculate rewards & updated balances.
-            foldFirst prev [maybeFetchOperations]
+            foldFirst prev [maybeFetchOperations, maybeCalculateBalances mainDB]
       loopAccounts path = do
         updated <- withAccountDB (T.unpack path) (stepAccounts path)
         unless (not updated) (loopAccounts path)

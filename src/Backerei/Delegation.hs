@@ -29,6 +29,12 @@ snapshotHash config cycle cycleLength snapshotInterval = do
   let blockHeight = snapshotHeight cycle snapshot cycleLength snapshotInterval
   blockHashByLevel config blockHeight
 
+snapshotLevel :: RPC.Config -> Int -> Int -> Int -> IO Int
+snapshotLevel config cycle cycleLength snapshotInterval = do
+  hash <- hashToQuery config cycle cycleLength
+  (CycleInfo _ snapshot) <- RPC.cycleInfo config hash cycle
+  return $ snapshotHeight cycle snapshot cycleLength snapshotInterval
+
 hashToQuery :: RPC.Config -> Int -> Int -> IO T.Text
 hashToQuery config cycle cycleLength = do
   (BlockHeader hashHead levelHead) <- RPC.header config RPC.head

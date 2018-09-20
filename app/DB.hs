@@ -20,6 +20,12 @@ withDB = withFile
 withAccountDB :: forall a . P.FilePath -> (Maybe AccountDB -> IO (AccountDB, a)) -> IO a
 withAccountDB = withFile
 
+mustReadDB :: forall a . P.FilePath -> IO DB
+mustReadDB path = withFile path $ \case
+  Nothing -> error "db expected but not found"
+  Just db -> do
+    return (db, db)
+
 withFile :: forall a b . (A.ToJSON b, A.FromJSON b) => P.FilePath -> (Maybe b -> IO (b, a)) -> IO a
 withFile path func = do
   exists <- D.doesFileExist path
@@ -44,13 +50,14 @@ data DB = DB {
 data AccountDB = AccountDB {
   accountLastBlockScanned :: Int,
   accountTxs              :: [AccountTx],
-  accountsPreferred       :: M.Map T.Text AccountInfo,
-  accountRemainder        :: AccountInfo
+  accountsPreferred       :: [(T.Text, Rational)],
+  accountHistory          :: M.Map Int AccountsState
 } deriving (Generic, Show)
 
-data AccountInfo = AccountInfo {
-  accountSplit   :: Rational,
-  accountHistory :: M.Map Int AccountCycleState
+data AccountsState = AccountsState {
+  stateStartHeight :: Int,
+  statePreferred   :: M.Map T.Text AccountCycleState,
+  stateRemainder   :: AccountCycleState
 } deriving (Generic, Show)
 
 data AccountTx = AccountTx {
@@ -64,9 +71,9 @@ data AccountTx = AccountTx {
 data TxKind = Debit | Credit deriving (Generic, Show)
 
 data AccountCycleState = AccountCycleState {
-  accountBalance          :: Tezzies,
-  accountEstimatedRewards :: Tezzies,
-  accountFinalRewards     :: Maybe Tezzies
+  accountStartingBalance :: Tezzies,
+  accountRewards         :: Tezzies,
+  accountFinalBalance    :: Tezzies
 } deriving (Generic, Show)
 
 data CyclePayout = CyclePayout {
@@ -123,10 +130,10 @@ instance A.ToJSON AccountDB where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
-instance A.FromJSON AccountInfo where
+instance A.FromJSON AccountsState where
   parseJSON = customParseJSON
 
-instance A.ToJSON AccountInfo where
+instance A.ToJSON AccountsState where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
