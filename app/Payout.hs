@@ -75,10 +75,10 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
 
       maybePayoutDelegatorForCycle cycle (address, delegator) db = do
-        case delegatorPayoutOperationHash delegator of
-          Just _  -> return (db, False)
-          Nothing -> do
-            let Just amount = delegatorFinalRewards delegator
+        case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of
+          (Just _, _)  -> return (db, False)
+          (Nothing, Just amount) | amount == 0 -> return (db, False)
+          (Nothing, Just amount) | otherwise -> do
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
