@@ -186,13 +186,25 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
       -}
 
       maybePayoutAccountsForCycle mainDB cycle db = do
-        -- Pay out released rewards (looking up balances) as virtual transactions, then update balances.
-        let payoutCycle = cycle P.- 5
-        if payoutCycle < startingCycle then return (db, False) else do
-          undefined
+        -- Pay out released rewards (looking up balances) as virtual transactions, then mark cycle paid.
+        let unlockedCycle = cycle P.- 6
+        if unlockedCycle < startingCycle then return (db, False) else do
+          let history = accountHistory db
+              state = history M.! unlockedCycle
+          if statePaid state then return (db, False) else do
+            let cycleStart = cycle P.* cycleLength
+                makeTx :: (T.Text, AccountCycleState) -> VirtualTx
+                makeTx (account, AccountCycleState _ _ (Just finalRewards)) = VirtualTx "" account cycleStart finalRewards
+                txs = fmap makeTx (M.toList $ statePreferred state)
+                newState = state { statePaid = True }
+            return (db { accountVtxs = accountVtxs db P.++ txs, accountHistory = M.insert unlockedCycle newState (accountHistory db) }, True)
 
       maybeFetchAccountEstimatesForCycle mainDB cycle db = do
         -- Fetch estimates for future cycle and calculate exact payouts for just-completed cycle.
+        let knownCycle = cycle + 5
+        -- Figure out snapshot block for known cycle.
+        -- Calculate account balances at snapshot block.
+        -- Split estimated rewards accordingly.
         undefined
 
       maybePayoutAccountsAndFetchEstimatesForCycle mainDB cycle db = do

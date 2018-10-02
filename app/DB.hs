@@ -56,9 +56,9 @@ data AccountDB = AccountDB {
 } deriving (Generic, Show)
 
 data AccountsState = AccountsState {
-  stateStartHeight :: Int,
-  statePreferred   :: M.Map T.Text AccountCycleState,
-  stateRemainder   :: AccountCycleState
+  statePreferred :: M.Map T.Text AccountCycleState,
+  stateRemainder :: AccountCycleState,
+  statePaid      :: Bool
 } deriving (Generic, Show)
 
 data AccountTx = AccountTx {
