@@ -171,9 +171,11 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             snapshot <- if knownCycle < startingCycle then return 0 else Delegation.snapshotLevel conf knownCycle cycleLength snapshotInterval
             snapshotHash <- Delegation.blockHashByLevel conf snapshot
             -- Calculate account balances at snapshot block.
-            totalBalance <- if knownCycle < startingCycle then return 0 else RPC.delegateBalanceAt conf snapshotHash baker
+            snapshotBalance <- if knownCycle < startingCycle then return 0 else RPC.delegateBalanceAt conf snapshotHash baker
+            frozenRewards <- if knownCycle < startingCycle then return 0 else RPC.totalFrozenRewardsAt conf snapshotHash baker
             -- Split estimated rewards accordingly.
-            let cyclePayout = (dbPayoutsByCycle mainDB) M.! knownCycle
+            let totalBalance = snapshotBalance P.- frozenRewards
+                cyclePayout = (dbPayoutsByCycle mainDB) M.! knownCycle
                 bakerRewards = cycleEstimatedBakerRewards cyclePayout
                 accounts = fmap (\(account, split) -> (account, let b = balanceAt db snapshot account in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
                 remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts) -- TODO double-check with same calculation -- TODO subtract pending rewards
