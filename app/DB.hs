@@ -56,9 +56,12 @@ data AccountDB = AccountDB {
 } deriving (Generic, Show)
 
 data AccountsState = AccountsState {
-  statePreferred :: M.Map T.Text AccountCycleState,
-  stateRemainder :: AccountCycleState,
-  statePaid      :: Bool
+  stateSnapshotHeight :: Int,
+  stateTotalBalance   :: Tezzies,
+  statePreferred      :: M.Map T.Text AccountCycleState,
+  stateRemainder      :: AccountCycleState,
+  stateFinalized      :: Bool,
+  statePaid           :: Bool
 } deriving (Generic, Show)
 
 data AccountTx = AccountTx {
@@ -80,6 +83,7 @@ data TxKind = Debit | Credit deriving (Generic, Show)
 
 data AccountCycleState = AccountCycleState {
   accountStakingBalance   :: Tezzies,
+  accountSplit            :: Rational,
   accountEstimatedRewards :: Tezzies,
   accountFinalRewards     :: Maybe Tezzies
 } deriving (Generic, Show)
