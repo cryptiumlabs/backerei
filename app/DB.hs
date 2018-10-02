@@ -50,6 +50,7 @@ data DB = DB {
 data AccountDB = AccountDB {
   accountLastBlockScanned :: Int,
   accountTxs              :: [AccountTx],
+  accountVtxs             :: [VirtualTx],
   accountsPreferred       :: [(T.Text, Rational)],
   accountHistory          :: M.Map Int AccountsState
 } deriving (Generic, Show)
@@ -68,12 +69,19 @@ data AccountTx = AccountTx {
   txAmount    :: Tezzies
 } deriving (Generic, Show)
 
+data VirtualTx = VirtualTx {
+  vtxFrom   :: T.Text,
+  vtxTo     :: T.Text,
+  vtxBlock  :: Int,
+  vtxAmount :: Tezzies
+} deriving (Generic, Show)
+
 data TxKind = Debit | Credit deriving (Generic, Show)
 
 data AccountCycleState = AccountCycleState {
-  accountStartingBalance :: Tezzies,
-  accountRewards         :: Tezzies,
-  accountFinalBalance    :: Tezzies
+  accountStakingBalance   :: Tezzies,
+  accountEstimatedRewards :: Tezzies,
+  accountFinalRewards     :: Maybe Tezzies
 } deriving (Generic, Show)
 
 data CyclePayout = CyclePayout {
@@ -141,6 +149,13 @@ instance A.FromJSON AccountTx where
   parseJSON = customParseJSON
 
 instance A.ToJSON AccountTx where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON VirtualTx where
+  parseJSON = customParseJSON
+
+instance A.ToJSON VirtualTx where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
