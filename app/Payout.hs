@@ -177,7 +177,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             let totalBalance = snapshotBalance P.- frozenRewards
                 cyclePayout = (dbPayoutsByCycle mainDB) M.! knownCycle
                 bakerRewards = cycleEstimatedBakerRewards cyclePayout
-                accounts = fmap (\(account, split) -> (account, let b = balanceAt db snapshot account in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
+                accounts = fmap (\(account, splits) -> (account, let b = balanceAt db snapshot account in let split = snd $ P.last $ P.filter (\x -> fst x < snapshot) splits in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
                 remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts) -- TODO double-check with same calculation -- TODO subtract pending rewards
                 remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (accountEstimatedRewards . snd) accounts)
                 preferred = M.fromList accounts

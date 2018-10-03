@@ -51,7 +51,7 @@ data AccountDB = AccountDB {
   accountLastBlockScanned :: Int,
   accountTxs              :: [AccountTx],
   accountVtxs             :: [VirtualTx],
-  accountsPreferred       :: [(T.Text, Rational)],
+  accountsPreferred       :: [(T.Text, [(Int, Rational)])],
   accountHistory          :: M.Map Int AccountsState
 } deriving (Generic, Show)
 
