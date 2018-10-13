@@ -75,6 +75,7 @@ executables:
     - process
     - aeson-pretty
     - posix-pty
+    - atomic-write
 
 tests:
   backerei-test:

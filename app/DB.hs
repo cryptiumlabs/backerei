@@ -1,18 +1,19 @@
 module DB where
 
-import qualified Data.Aeson               as A
-import qualified Data.Aeson.Encode.Pretty as A
-import qualified Data.Aeson.Types         as A
-import qualified Data.ByteString.Lazy     as BL
-import           Data.Char                (isLower, toLower)
-import qualified Data.Map                 as M
-import qualified Data.Text                as T
+import qualified Data.Aeson                               as A
+import qualified Data.Aeson.Encode.Pretty                 as A
+import qualified Data.Aeson.Types                         as A
+import qualified Data.ByteString.Lazy                     as BL
+import           Data.Char                                (isLower, toLower)
+import qualified Data.Map                                 as M
+import qualified Data.Text                                as T
 import           Foundation
 import           GHC.Generics
-import qualified Prelude                  as P
-import qualified System.Directory         as D
+import qualified Prelude                                  as P
+import qualified System.AtomicWrite.Writer.LazyByteString as AW
+import qualified System.Directory                         as D
 
-import           Backerei.Types           (Tezzies)
+import           Backerei.Types                           (Tezzies)
 
 withDB :: forall a . P.FilePath -> (Maybe DB -> IO (DB, a)) -> IO a
 withDB = withFile
@@ -20,7 +21,7 @@ withDB = withFile
 withAccountDB :: forall a . P.FilePath -> (Maybe AccountDB -> IO (AccountDB, a)) -> IO a
 withAccountDB = withFile
 
-mustReadDB :: forall a . P.FilePath -> IO DB
+mustReadDB :: P.FilePath -> IO DB
 mustReadDB path = withFile path $ \case
   Nothing -> error "db expected but not found"
   Just db -> do
@@ -37,7 +38,7 @@ withFile path func = do
         Nothing -> error "could not decode DB"
     else do
       func Nothing
-  BL.writeFile path $ A.encodePretty' prettyConfig updated
+  AW.atomicWriteFile path $ A.encodePretty' prettyConfig updated
   return other
 
 prettyConfig :: A.Config
@@ -223,6 +224,8 @@ jsonOptions = A.defaultOptions {
 customParseJSON :: (Generic a, A.GFromJSON A.Zero (Rep a)) => A.Value -> A.Parser a
 customParseJSON = A.genericParseJSON jsonOptions
 
+customToJSON :: (Generic a, A.GToJSON A.Zero (Rep a)) => a -> A.Value
 customToJSON = A.genericToJSON jsonOptions
 
+customToEncoding :: (Generic a, A.GToEncoding A.Zero (Rep a)) => a -> A.Encoding
 customToEncoding = A.genericToEncoding jsonOptions

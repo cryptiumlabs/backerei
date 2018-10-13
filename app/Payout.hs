@@ -77,6 +77,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
 
       maybePayoutDelegatorForCycle cycle (address, delegator) db = do
         case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of
+          (Nothing, Nothing) -> error "should not happen: neither operation hash nor final rewards"
           (Just _, _)  -> return (db, False)
           (Nothing, Just amount) | amount == 0 -> return (db, False)
           (Nothing, Just amount) | otherwise -> do
@@ -134,7 +135,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         in txb P.+ vtxb
 
       calculateRewards :: BakerRewards -> Maybe BakerRewards -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
-      calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) realized balance totalBalance split =
+      calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) _ balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
@@ -144,7 +145,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             totalNet      = bondNet P.+ otherNet
         in totalNet
 
-      maybePayoutAccountsForCycle mainDB cycle db = do
+      maybePayoutAccountsForCycle cycle db = do
         -- Pay out released rewards (looking up balances) as virtual transactions, then mark cycle paid.
         let unlockedCycle = cycle P.- 6
         if unlockedCycle < startingCycle then return (db, False) else do
@@ -155,6 +156,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             let cycleStart = cycle P.* cycleLength
                 makeTx :: (T.Text, AccountCycleState) -> VirtualTx
                 makeTx (account, AccountCycleState _ _ _ (Just finalRewards)) = VirtualTx "" account cycleStart finalRewards
+                makeTx _ = error "should not happen: no final rewards"
                 txs = fmap makeTx (M.toList $ statePreferred state)
                 newState = state { statePaid = True }
             return (db { accountVtxs = accountVtxs db P.++ txs, accountHistory = M.insert unlockedCycle newState (accountHistory db) }, True)
@@ -205,7 +207,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           return (db { accountHistory = M.insert finishedCycle updatedState history }, True)
 
       maybePayoutAccountsAndFetchEstimatesForCycle mainDB cycle db = do
-        foldFirst db [maybePayoutAccountsForCycle mainDB cycle, maybeFetchAccountEstimatesForCycle mainDB cycle, maybeFetchAccountActualForCycle mainDB cycle]
+        foldFirst db [maybePayoutAccountsForCycle cycle, maybeFetchAccountEstimatesForCycle mainDB cycle, maybeFetchAccountActualForCycle mainDB cycle]
       maybePayoutAccountsAndFetchEstimates mainDB db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel

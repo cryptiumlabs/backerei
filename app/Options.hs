@@ -40,7 +40,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions ctx <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -63,8 +63,8 @@ dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPAT
 clientPathOptions :: Parser T.Text
 clientPathOptions = T.pack <$> strOption (long "client-path" <> metavar "PATH" <> help "Path to 'tezos-client' executable" <> showDefault <> value "/usr/local/bin/tezos-client")
 
-clientConfigFileOptions :: Context -> Parser T.Text
-clientConfigFileOptions ctx = T.pack <$> strOption (long "client-config-file" <> metavar "PATH" <> help "Path to 'tezos-client' config file")
+clientConfigFileOptions :: Parser T.Text
+clientConfigFileOptions = T.pack <$> strOption (long "client-config-file" <> metavar "PATH" <> help "Path to 'tezos-client' config file")
 
 startingCycleOptions :: Parser Int
 startingCycleOptions = option auto (long "starting-cycle" <> metavar "CYCLE" <> help "Cycle at which baker became a delegate")

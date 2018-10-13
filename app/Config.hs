@@ -59,6 +59,8 @@ jsonOptions = A.defaultOptions {
 customParseJSON :: (Generic a, A.GFromJSON A.Zero (Rep a)) => Y.Value -> Y.Parser a
 customParseJSON = A.genericParseJSON jsonOptions
 
+customToJSON :: (Generic a, A.GToJSON A.Zero (Rep a)) => a -> A.Value
 customToJSON = A.genericToJSON jsonOptions
 
+customToEncoding :: (Generic a, A.GToEncoding A.Zero (Rep a)) => a -> A.Encoding
 customToEncoding = A.genericToEncoding jsonOptions
