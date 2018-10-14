@@ -97,7 +97,7 @@ data OperationContents = OperationContents {
   opcontentsAmount      :: Maybe Tezzies
 } deriving (Generic, Show)
 
-data OperationMetadata = OperationMetadata {
+newtype OperationMetadata = OperationMetadata {
   opmetadataDelegate :: Maybe T.Text
 } deriving (Generic, Show)
 

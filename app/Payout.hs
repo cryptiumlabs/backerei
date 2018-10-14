@@ -80,7 +80,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           (Nothing, Nothing) -> error "should not happen: neither operation hash nor final rewards"
           (Just _, _)  -> return (db, False)
           (Nothing, Just amount) | amount == 0 -> return (db, False)
-          (Nothing, Just amount) | otherwise -> do
+          (Nothing, Just amount) -> do
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
             updatedDelegator <-
               if noDryRun then do
@@ -105,7 +105,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
                       filtered  = filter (\l -> T.take (T.length start) l == start) lines
                   case filtered of
                     [line] -> do
-                      let hash = T.drop (T.length start) $ T.filter ((/=) '\r') line
+                      let hash = T.drop (T.length start) $ T.filter ('\r' /=) line
                       T.putStrLn $ T.concat ["Operation hash: ", hash]
                       return delegator { delegatorPayoutOperationHash = Just hash }
                     _ -> do

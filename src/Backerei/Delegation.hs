@@ -71,7 +71,7 @@ stolenBlocks :: RPC.Config -> Int -> Int -> T.Text -> IO [(Int, T.Text, Int, Tez
 stolenBlocks config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   bakingRights <- filter ((<) 0 . bakingPriority) `fmap` RPC.bakingRightsFor config hash delegate cycle
-  mconcat `fmap` (flip mapM bakingRights $ \(BakingRight _ priority _ level) -> do
+  mconcat `fmap` forM bakingRights (\(BakingRight _ priority _ level) -> do
     hash <- blockHashByLevel config level
     (BlockMetadata _ baker balanceUpdates) <- RPC.metadata config hash
     if baker /= delegate then return [] else do

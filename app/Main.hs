@@ -92,7 +92,7 @@ run (Options configPath command) = do
             T.putStrLn $ T.concat ["Scanning rights for cycle ", T.pack $ P.show cycle, "..."]
             baking <- filter ((==) 0 . RPC.bakingPriority) `fmap` RPC.bakingRightsFor conf head baker cycle
             endorsing <- RPC.endorsingRightsFor conf head baker cycle
-            if length baking > 0 || length endorsing > 0 then return (cycle, baking, endorsing) else next (cycle + 1)
+            if not (null baking) || not (null endorsing) then return (cycle, baking, endorsing) else next (cycle + 1)
       (cycle, baking, endorsing) <- next cycle
       T.putStrLn $ T.concat ["Found rights in cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show $ P.length baking, " blocks to bake (priority 0), ",
         T.pack $ P.show $ P.length endorsing, " blocks to endorse."]
