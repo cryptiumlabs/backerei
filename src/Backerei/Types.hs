@@ -143,8 +143,8 @@ instance A.FromJSON BalanceUpdate where
 
 jsonOptions ∷ A.Options
 jsonOptions = A.defaultOptions {
-  A.fieldLabelModifier = concatMap (\(i, c) -> if i > (0 :: Int) && isUpper c then ['_', toLower c] else [toLower c]) . (zip [0..]) . dropWhile isLower,
-  A.constructorTagModifier = (\(x:xs) -> toLower x : xs),
+  A.fieldLabelModifier = concatMap (\(i, c) -> if i > (0 :: Int) && isUpper c then ['_', toLower c] else [toLower c]) . zip [0..] . dropWhile isLower,
+  A.constructorTagModifier = \(x:xs) -> toLower x : xs,
   A.omitNothingFields  = True,
   A.sumEncoding        = A.ObjectWithSingleField
 }

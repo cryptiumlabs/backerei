@@ -87,7 +87,7 @@ protocols config = get config ["protocols"] mempty
 get :: (A.FromJSON a) => Config -> [T.Text] -> R.Option 'R.Http -> IO a
 get config path options = R.runReq def $ do
   r <- R.req R.GET
-    (foldl' ((R./:)) (R.http (configHost config)) path)
+    (foldl' (R./:) (R.http (configHost config)) path)
     R.NoReqBody
     R.jsonResponse
     (R.port (configPort config) <> R.responseTimeout 600000000 <> options)

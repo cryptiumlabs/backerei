@@ -16,7 +16,7 @@ import           System.Directory
 import           System.Exit
 import           System.IO
 import qualified Telegram.Bot.API             as TG
-import           Text.PrettyPrint.ANSI.Leijen hiding ((<>))
+import           Text.PrettyPrint.ANSI.Leijen hiding ((<$>), (<>))
 
 import qualified Backerei.RPC                 as RPC
 import qualified Backerei.Types               as RPC
@@ -32,9 +32,7 @@ main = do
   run =<< execParser opts
 
 context ∷ IO Context
-context = do
-  home <- getHomeDirectory
-  return (Context home)
+context = Context <$> getHomeDirectory
 
 run ∷ Options → IO ()
 run (Options configPath command) = do
@@ -76,8 +74,7 @@ run (Options configPath command) = do
                   if Just head == prev then threadDelay (P.round (1e6 :: Double)) >> helper prev else do
                     header <- RPC.header conf head
                     T.putStrLn $ T.concat ["Current height: ", T.pack $ P.show $ RPC.headerLevel header]
-                    if RPC.headerLevel header == height then return head else do
-                      helper (Just head)
+                    if RPC.headerLevel header == height then return head else helper (Just head)
             T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
       sendMessage <-  case configTelegram config of
@@ -101,7 +98,7 @@ run (Options configPath command) = do
         T.pack $ P.show $ P.length endorsing, " blocks to endorse."]
       let levelToWait (Right e) = RPC.endorsingLevel e + 1
           levelToWait (Left b)  = RPC.bakingLevel b
-          allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) $ (fmap Right endorsing <> fmap Left baking)
+          allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) (fmap Right endorsing <> fmap Left baking)
       forM_ allRights $ \right -> do
         sendMessage $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
         hash <- waitUntil (levelToWait right)
@@ -113,9 +110,9 @@ run (Options configPath command) = do
               _ -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
           Left _ -> do
             metadata <- RPC.metadata conf hash
-            if RPC.metadataBaker metadata == baker then do
+            if RPC.metadataBaker metadata == baker then
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
-            else do
+            else
               sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
     Payout noDryRun -> do
       fromPassword <- do

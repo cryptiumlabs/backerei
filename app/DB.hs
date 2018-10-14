@@ -24,19 +24,19 @@ withAccountDB = withFile
 mustReadDB :: P.FilePath -> IO DB
 mustReadDB path = withFile path $ \case
   Nothing -> error "db expected but not found"
-  Just db -> do
+  Just db ->
     return (db, db)
 
 withFile :: forall a b . (A.ToJSON b, A.FromJSON b) => P.FilePath -> (Maybe b -> IO (b, a)) -> IO a
 withFile path func = do
   exists <- D.doesFileExist path
-  (updated, other) <- do
+  (updated, other) <-
     if exists then do
       prev <- BL.readFile path
       case A.decode prev of
         Just db -> func db
         Nothing -> error "could not decode DB"
-    else do
+    else
       func Nothing
   AW.atomicWriteFile path $ A.encodePretty' prettyConfig updated
   return other
@@ -44,7 +44,7 @@ withFile path func = do
 prettyConfig :: A.Config
 prettyConfig = A.Config (A.Spaces 4) A.compare A.Generic False
 
-data DB = DB {
+newtype DB = DB {
   dbPayoutsByCycle :: M.Map Int CyclePayout
 } deriving (Generic, Show)
 
@@ -216,7 +216,7 @@ instance A.ToJSON StolenBlock where
 jsonOptions ∷ A.Options
 jsonOptions = A.defaultOptions {
   A.fieldLabelModifier = (\(h:t) -> toLower h : t) . dropWhile isLower,
-  A.constructorTagModifier = (\(x:xs) -> toLower x : xs),
+  A.constructorTagModifier = \(x:xs) -> toLower x : xs,
   A.omitNothingFields  = True,
   A.sumEncoding        = A.ObjectWithSingleField
 }

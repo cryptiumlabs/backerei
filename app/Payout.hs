@@ -44,8 +44,8 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         let payouts = dbPayoutsByCycle db
         case M.lookup cycle payouts of
           Nothing -> error "should not happen: missed lookup"
-          Just cyclePayout -> do
-            if isJust (cycleFinalTotalRewards cyclePayout) then do
+          Just cyclePayout ->
+            if isJust (cycleFinalTotalRewards cyclePayout) then
               return (db, False)
             else do
               T.putStrLn $ T.concat ["Updating DB with actual earnings for cycle ", T.pack $ P.show cycle, "..."]
@@ -62,7 +62,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
                   realizedDifference = realizedRewards P.- paidRewards
                   estimatedDifference = estimatedRewards P.- paidRewards
                   finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
-              if estimatedDifference > 0 then fail "should not happen: positive difference" else return ()
+              when (estimatedDifference > 0) $ error "should not happen: positive difference"
               ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
@@ -75,7 +75,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             knownCycle   = currentCycle - 1
         foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
 
-      maybePayoutDelegatorForCycle cycle (address, delegator) db = do
+      maybePayoutDelegatorForCycle cycle (address, delegator) db =
         case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of
           (Nothing, Nothing) -> error "should not happen: neither operation hash nor final rewards"
           (Just _, _)  -> return (db, False)
@@ -177,7 +177,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             frozenRewards <- if knownCycle < startingCycle then return 0 else RPC.totalFrozenRewardsAt conf snapshotHash baker
             -- Split estimated rewards accordingly.
             let totalBalance = snapshotBalance P.- frozenRewards
-                cyclePayout = (dbPayoutsByCycle mainDB) M.! knownCycle
+                cyclePayout = dbPayoutsByCycle mainDB M.! knownCycle
                 bakerRewards = cycleEstimatedBakerRewards cyclePayout
                 accounts = fmap (\(account, splits) -> (account, let b = balanceAt db snapshot account in let split = snd $ P.last $ P.filter (\x -> fst x < snapshot) splits in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
                 remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts) -- TODO double-check with same calculation -- TODO subtract pending rewards
@@ -194,11 +194,11 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             state = history M.! finishedCycle
         if finishedCycle < startingCycle || stateFinalized state then return (db, False) else do
           T.putStrLn $ T.concat ["Calculating final internal account rewards for cycle ", T.pack $ P.show finishedCycle, "..."]
-          let cyclePayout = (dbPayoutsByCycle mainDB) M.! finishedCycle
+          let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
-              updatedPreferred  = fmap (\(account, (AccountCycleState balance split estimated Nothing)) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just finalBakerRewards) balance totalBalance split))) $ M.toList $ statePreferred state
+              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just finalBakerRewards) balance totalBalance split))) $ M.toList $ statePreferred state
               remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
               updatedRemainder  = remainder { accountFinalRewards = Just remainderRewards }
@@ -206,7 +206,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           T.putStrLn $ T.concat ["Estimated remainder rewards: ", T.pack $ P.show (accountEstimatedRewards remainder), ", final remainder rewards: ", T.pack $ P.show remainderRewards]
           return (db { accountHistory = M.insert finishedCycle updatedState history }, True)
 
-      maybePayoutAccountsAndFetchEstimatesForCycle mainDB cycle db = do
+      maybePayoutAccountsAndFetchEstimatesForCycle mainDB cycle db =
         foldFirst db [maybePayoutAccountsForCycle cycle, maybeFetchAccountEstimatesForCycle mainDB cycle, maybeFetchAccountActualForCycle mainDB cycle]
       maybePayoutAccountsAndFetchEstimates mainDB db = do
         currentLevel <- RPC.currentLevel conf RPC.head
@@ -219,7 +219,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         operations <- RPC.operations conf hash
         let assoc     = P.concatMap (\o -> fmap ((,) (RPC.operationHash o)) (RPC.operationContents o)) operations
             matching  = P.filter (\(_, contents) -> RPC.opcontentsKind contents == "transaction" && (RPC.opcontentsSource contents == Just baker || RPC.opcontentsDestination contents == Just baker)) assoc
-        txs <- flip mapM matching $ \(hash, contents) -> do
+        txs <- forM matching $ \(hash, contents) -> do
           T.putStrLn $ T.concat ["Enter account name for operation: ", T.pack $ P.show (hash, contents), ":"]
           account <- T.getLine
           let kind = if RPC.opcontentsSource contents == Just baker then Debit else Credit
@@ -230,12 +230,12 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         let level = RPC.levelLevel currentLevel
         foldFirst db (fmap maybeFetchOperationsByLevel [(accountLastBlockScanned db + 1) .. level])
 
-      step databasePath db = do
+      step databasePath db =
         case db of
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new DB in file ", databasePath, "..."]
             return (DB M.empty, True)
-          Just prev -> do
+          Just prev ->
             foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
       loop = do
         updated <- withDB (T.unpack databasePath) (step databasePath)
@@ -247,8 +247,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
             return (AccountDB (-1) [] [] [] M.empty, True)
-          Just prev -> do
-            -- Calculate rewards & updated balances.
+          Just prev ->
             foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
       loopAccounts path = do
         updated <- withAccountDB (T.unpack path) (stepAccounts path)
@@ -256,9 +255,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
 
   loop
 
-  case accountDatabasePath of
-    Just path -> loopAccounts path
-    Nothing   -> return ()
+  forM_ accountDatabasePath loopAccounts
 
 waitASecond :: IO ()
 waitASecond = threadDelay (P.round (1e6 :: Double))

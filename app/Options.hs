@@ -5,7 +5,7 @@ import           Foundation
 import           Options.Applicative
 import qualified Prelude             as P
 
-data Context = Context {
+newtype Context = Context {
   contextHomeDirectory :: P.FilePath
 }
 

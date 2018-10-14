@@ -1,12 +1,13 @@
 module Backerei.Delegation where
 
+import           Control.Applicative
 import           Control.Monad
-import           Data.List      (zip)
-import qualified Data.Text      as T
+import           Data.List           (zip)
+import qualified Data.Text           as T
 import           Foundation
-import qualified Prelude        as P
+import qualified Prelude             as P
 
-import qualified Backerei.RPC   as RPC
+import qualified Backerei.RPC        as RPC
 import           Backerei.Types
 
 getContributingBalancesFor :: RPC.Config -> Int -> Int -> Int -> T.Text -> IO ([(T.Text, Tezzies)], Tezzies)
@@ -19,7 +20,7 @@ getContributingBalancesFor config cycleLength snapshotInterval cycle delegate = 
   let totalFrozenRewards = foldl' (P.+) 0 (fmap frozenRewards frozenByCycle)
       selfBalance = fullBalance P.- totalFrozenRewards
   stakingBalance <- RPC.stakingBalanceAt config snapshotBlockHash delegate
-  if selfBalance P.+ P.sum balances /= stakingBalance then error "should not happen" else return ()
+  when (selfBalance P.+ P.sum balances /= stakingBalance) $ error "should not happen"
   return (filter ((<) 0 . snd) ((delegate, selfBalance) : zip delegators balances), stakingBalance)
 
 snapshotHash :: RPC.Config -> Int -> Int -> Int -> IO T.Text
@@ -63,14 +64,14 @@ blockHashByLevel :: RPC.Config -> Int -> IO T.Text
 blockHashByLevel config level = do
   (BlockHeader hashHead levelHead) <- RPC.header config RPC.head
   (BlockHeader hash' level') <- RPC.header config (T.concat [hashHead, "~", T.pack $ P.show $ levelHead - level])
-  if level /= level' then error "should not happen: tezos rpc fault, wrong level" else return ()
+  when (level /= level') $ error "should not happen: tezos rpc fault, wrong level"
   return hash'
 
 stolenBlocks :: RPC.Config -> Int -> Int -> T.Text -> IO [(Int, T.Text, Int, Tezzies, Tezzies)]
 stolenBlocks config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   bakingRights <- filter ((<) 0 . bakingPriority) `fmap` RPC.bakingRightsFor config hash delegate cycle
-  stolen <- mconcat `fmap` (flip mapM bakingRights $ \(BakingRight _ priority _ level) -> do
+  mconcat `fmap` (flip mapM bakingRights $ \(BakingRight _ priority _ level) -> do
     hash <- blockHashByLevel config level
     (BlockMetadata _ baker balanceUpdates) <- RPC.metadata config hash
     if baker /= delegate then return [] else do
@@ -79,7 +80,6 @@ stolenBlocks config cycleLength cycle delegate = do
           reward = updateChange update
           fees = P.sum $ fmap (P.sum . fmap (fromMaybe 0 . opcontentsFee) . operationContents) operations
       return [(level, hash, priority, reward, fees)])
-  return stolen
 
 calculateRewardsFor :: RPC.Config -> Int -> Int -> Int -> T.Text -> Tezzies -> Rational -> IO ((Tezzies, Tezzies, Tezzies, Tezzies), [(T.Text, Tezzies, Tezzies)], Tezzies)
 calculateRewardsFor config cycleLength snapshotInterval cycle delegate rewards fee = do
@@ -91,11 +91,11 @@ calculateRewardsFor config cycleLength snapshotInterval cycle delegate rewards f
       (_, bakerBalance) = P.head balances
       bakerSelfReward = bakerBalance P.* rewards P./ totalBalance
       bakerFeeReward = feeTz P.* rewards P.* (totalBalance P.- bakerBalance) P./ totalBalance
-      delegatorRewards = fmap (\(x, y) -> (x, y, y P.* (1 P.- feeTz) P.* rewards P./ totalBalance)) $ drop 1 balances
+      delegatorRewards = (\(x, y) -> (x, y, y P.* (1 P.- feeTz) P.* rewards P./ totalBalance)) <$> drop 1 balances
       totalDelegatorRewards = P.sum (fmap (\(_, _, r) -> r) delegatorRewards)
       {- Leftover from fixed-precision floor rounding. -}
       bakerLooseReward = rewards P.- totalDelegatorRewards P.- bakerSelfReward P.- bakerFeeReward
       bakerTotalReward = bakerSelfReward P.+ bakerFeeReward P.+ bakerLooseReward
       bakerRewards = (bakerSelfReward, bakerFeeReward, bakerLooseReward, bakerTotalReward)
-  if (bakerTotalReward P.+ totalDelegatorRewards /= rewards) then error "should not happen: rewards mismatch" else return ()
+  when (bakerTotalReward P.+ totalDelegatorRewards /= rewards) $ error "should not happen: rewards mismatch"
   return (bakerRewards, delegatorRewards, stakingBalance)
