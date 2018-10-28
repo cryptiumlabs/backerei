@@ -234,24 +234,28 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         case db of
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new DB in file ", databasePath, "..."]
-            return (DB M.empty, True)
-          Just prev ->
-            foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
-      loop = do
-        updated <- withDB (T.unpack databasePath) (step databasePath)
-        unless (not updated) loop
+            step databasePath (Just $ DB M.empty)
+          Just prev -> do
+            let loop = do
+                  (res, updated) <- foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
+                  if updated then loop else return (res, ())
+            loop
+
+      loop = withDB (T.unpack databasePath) (step databasePath)
 
       stepAccounts accountDatabasePath db = do
         mainDB <- mustReadDB (T.unpack databasePath)
         case db of
           Nothing -> do
             T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
-            return (AccountDB (-1) [] [] [] M.empty, True)
-          Just prev ->
-            foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
-      loopAccounts path = do
-        updated <- withAccountDB (T.unpack path) (stepAccounts path)
-        unless (not updated) (loopAccounts path)
+            stepAccounts accountDatabasePath (Just $ AccountDB (-1) [] [] [] M.empty)
+          Just prev -> do
+            let loop = do
+                  (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
+                  if updated then loop else return (res, ())
+            loop
+
+      loopAccounts path = withAccountDB (T.unpack path) (stepAccounts path)
 
   loop
 
