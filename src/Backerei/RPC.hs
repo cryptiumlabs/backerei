@@ -55,6 +55,11 @@ totalFrozenRewardsAt config hash delegate = do
   frozenByCycle <- frozenBalanceByCycle config hash delegate
   return $ P.sum $ fmap frozenRewards frozenByCycle
 
+frozenFeesForCycle :: Config -> T.Text -> T.Text -> Int -> IO Tezzies
+frozenFeesForCycle config hash delegate cycle = do
+  frozenByCycle <- frozenBalanceByCycle config hash delegate
+  return $ P.sum $ fmap frozenFees $ P.filter ((==) cycle . frozenCycle) frozenByCycle
+
 stakingBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 stakingBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
 

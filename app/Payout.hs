@@ -141,12 +141,12 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
-      calculateRewards :: BakerRewards -> Maybe BakerRewards -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
-      calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) _ balance totalBalance split =
+      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
+      calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) finalFees balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
-            feeRewards    = 0
+            feeRewards    = case finalFees of Just (fees, total) -> balance P.* fees P./ total; Nothing -> 0
             otherRewards  = (estimatedTotal P.- estimatedBond) P.+ feeRewards
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
             totalNet      = bondNet P.+ otherNet
@@ -187,7 +187,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
                 cyclePayout = dbPayoutsByCycle mainDB M.! knownCycle
                 bakerRewards = cycleEstimatedBakerRewards cyclePayout
                 accounts = fmap (\(account, splits) -> (account, let b = balanceAt db snapshot account in let split = snd $ P.last $ P.filter (\x -> fst x < snapshot) splits in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
-                remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts) -- TODO double-check with same calculation -- TODO subtract pending rewards
+                remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts)
                 remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (accountEstimatedRewards . snd) accounts)
                 preferred = M.fromList accounts
                 remainder = AccountCycleState remainderBalance 0 remainderRewards Nothing
@@ -201,11 +201,17 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             state = history M.! finishedCycle
         if finishedCycle < startingCycle || stateFinalized state then return (db, False) else do
           T.putStrLn $ T.concat ["Calculating final internal account rewards for cycle ", T.pack $ P.show finishedCycle, "..."]
+          snapshot <- Delegation.snapshotLevel conf finishedCycle cycleLength snapshotInterval
+          snapshotHash <- Delegation.blockHashByLevel conf snapshot
+          snapshotBalance <- RPC.delegateBalanceAt conf snapshotHash baker
+          hash <- Delegation.hashToQuery conf (finishedCycle + 2) cycleLength
+          fees <- RPC.frozenFeesForCycle conf hash baker finishedCycle
+          T.putStrLn $ T.concat ["Total fees for cycle ", T.pack $ P.show finishedCycle, ": ", T.pack $ P.show fees]
           let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
-              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just finalBakerRewards) balance totalBalance split))) $ M.toList $ statePreferred state
+              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
               remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
               updatedRemainder  = remainder { accountFinalRewards = Just remainderRewards }
