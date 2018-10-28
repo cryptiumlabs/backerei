@@ -18,7 +18,7 @@ data Command =
   Version |
   Init T.Text T.Text Int T.Text Rational T.Text T.Text T.Text Int Int Int |
   Monitor |
-  Payout Bool
+  Payout Bool Bool
 
 options ∷ Context → Parser Options
 options ctx = Options <$> configOptions ctx <*> commandOptions ctx
@@ -73,11 +73,17 @@ cycleLengthOptions = option auto (long "cycle-length" <> metavar "BLOCKS" <> hel
 snapshotIntervalOptions :: Parser Int
 snapshotIntervalOptions = option auto (long "snapshot-interval" <> metavar "BLOCKS" <> help "Interval between snapshots in blocks" <> showDefault <> value 256)
 
+accountOptions :: Parser T.Text
+accountOptions = T.pack <$> strOption (long "account" <> metavar "ACCOUNT" <> help "Account name or KT1 address")
+
 monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
-payoutOptions = Payout <$> noDryRunOptions
+payoutOptions = Payout <$> noDryRunOptions <*> continuousOptions
 
 noDryRunOptions :: Parser Bool
 noDryRunOptions = switch (long "no-dry-run" <> help "Really transfer Tezzies")
+
+continuousOptions :: Parser Bool
+continuousOptions = switch (long "continuous" <> help "Run continuously")

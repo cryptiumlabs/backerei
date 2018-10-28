@@ -101,7 +101,7 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else
               sendMessage $ prepend <> T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout noDryRun -> do
+    Payout noDryRun continuous -> do
       fromPassword <- do
         hSetEcho stdin False
         System.IO.putStr "Enter source account password: "
@@ -110,7 +110,7 @@ run (Options configPath command) = do
         putChar '\n'
         hSetEcho stdin True
         return pass
-      withConfig $ \c -> payout c noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword)
+      withConfig $ \c -> payout c noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword) continuous
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [

@@ -20,8 +20,8 @@ import qualified Backerei.Types        as RPC
 import           Config
 import           DB
 
-payout :: Config -> Bool -> Maybe T.Text -> IO ()
-payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword = do
+payout :: Config -> Bool -> Maybe T.Text -> Bool -> IO ()
+payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -119,7 +119,14 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           Nothing -> error "should not happen: missed lookup"
           Just cyclePayout -> do
             let delegators = cycleDelegators cyclePayout
-            foldFirst db (fmap (maybePayoutDelegatorForCycle cycle) (M.toList delegators))
+                total = P.sum $ fmap (fromJust . delegatorFinalRewards) $ P.filter (isJust . delegatorFinalRewards) $ P.filter (isNothing . delegatorPayoutOperationHash) $ M.elems delegators
+            if total == 0 then return (db, False) else do
+              balance <- RPC.balanceAt conf RPC.head from
+              T.putStrLn $ T.concat ["Total payouts: ", T.pack $ P.show total, ", payout account balance: ", T.pack $ P.show balance]
+              if balance < total then do
+                T.putStrLn "Balance less than total required to pay cycle, aborting"
+                return (db, False)
+              else foldFirst db (fmap (maybePayoutDelegatorForCycle cycle) (M.toList delegators))
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
@@ -238,28 +245,33 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
           Just prev -> do
             let loop = do
                   (res, updated) <- foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
-                  if updated then loop else return (res, ())
+                  if updated then step databasePath (Just res) else return (res, ())
             loop
 
       loop = withDB (T.unpack databasePath) (step databasePath)
 
       stepAccounts accountDatabasePath db = do
         mainDB <- mustReadDB (T.unpack databasePath)
-        case db of
-          Nothing -> do
-            T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
-            stepAccounts accountDatabasePath (Just $ AccountDB (-1) [] [] [] M.empty)
-          Just prev -> do
-            let loop = do
+        let loop db =
+              case db of
+                Nothing -> do
+                  T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
+                  loop $ Just $ AccountDB (-1) [] [] [] M.empty
+                Just prev -> do
                   (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
-                  if updated then loop else return (res, ())
-            loop
+                  if updated then loop (Just res) else return (res, ())
+        loop db
 
       loopAccounts path = withAccountDB (T.unpack path) (stepAccounts path)
 
-  loop
+  let go = do
+        loop
+        forM_ accountDatabasePath loopAccounts
+        when continuous $ do
+          threadDelay 10000000
+          go
 
-  forM_ accountDatabasePath loopAccounts
+  go
 
 waitASecond :: IO ()
 waitASecond = threadDelay (P.round (1e6 :: Double))
