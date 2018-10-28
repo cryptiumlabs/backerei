@@ -6,15 +6,22 @@ Tooling for the Cryptium Tezos Bäckerei
 
 #### Initialization
 
-Initialize Bäckerei with the tz1 address of your baker, for example that of [Cryptium Labs](https://tzscan.io/tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8):
+Initialize Bäckerei with the tz1 address of your baker, for example that of [Cryptium Labs](https://tzscan.io/tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8),
+the address you want to send payouts from, the path to your database file, and the first cycle in which you baked or endorsed blocks:
 
 ```bash
-backerei init --tz1 tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8 --from tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8
+backerei init \
+  --tz1 tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8 \
+  --from tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8 \
+  --client-config-file $HOME/.tezos-client/config \
+  --starting-cycle 11
 ```
+
+More options can be passed if desired. Run `backerei init --help` for a full list. You can also edit the config file directly.
 
 #### Executing payouts
 
-Bäckerei is stateful and will calculate outstanding payouts automatically, just run:
+Bäckerei is stateful and will calculate outstanding payouts automatically. Simply run:
 
 ```bash
 backerei payout
@@ -39,7 +46,7 @@ In any case, you would be well-advised to pay from an isolated account with the 
 
 #### Verifying payouts
 
-You can find previous payout information for Cryptium Labs [here](https://github.com/cryptiumlabs/library/tree/master/validation-records/tezos)
+You can find historical payout logs for Cryptium Labs [here](https://github.com/cryptiumlabs/library/tree/master/validation-records/tezos)
 and cross-check against a payout database generated locally.
 
 ### Development
