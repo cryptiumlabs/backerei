@@ -25,8 +25,9 @@ data Config = Config {
 } deriving (Generic)
 
 data TelegramConfig = TelegramConfig {
-  telegramToken   :: T.Text,
-  telegramChannel :: T.Text
+  telegramToken             :: T.Text,
+  telegramChannel           :: T.Text,
+  telegramUsernamesToNotify :: [T.Text]
 } deriving (Generic)
 
 loadConfig ∷ P.FilePath → IO (Maybe Config)

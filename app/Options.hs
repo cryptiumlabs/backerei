@@ -17,7 +17,6 @@ data Options = Options {
 data Command =
   Version |
   Init T.Text T.Text Int T.Text Rational T.Text T.Text T.Text Int Int Int |
-  Status |
   Monitor |
   Payout Bool
 
@@ -31,7 +30,6 @@ commandOptions ∷ Context -> Parser Command
 commandOptions ctx = subparser (
   command "version" (info versionOptions (progDesc "Display program version information")) <>
   command "init" (info (initOptions ctx) (progDesc "Initialize configuration file")) <>
-  command "status" (info statusOptions (progDesc "Display delegate status")) <>
   command "monitor" (info monitorOptions (progDesc "Monitor baking & endorsing status")) <>
   command "payout" (info payoutOptions (progDesc "Calculate payouts"))
   )
@@ -74,9 +72,6 @@ cycleLengthOptions = option auto (long "cycle-length" <> metavar "BLOCKS" <> hel
 
 snapshotIntervalOptions :: Parser Int
 snapshotIntervalOptions = option auto (long "snapshot-interval" <> metavar "BLOCKS" <> help "Interval between snapshots in blocks" <> showDefault <> value 256)
-
-statusOptions ∷ Parser Command
-statusOptions = pure Status
 
 monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor

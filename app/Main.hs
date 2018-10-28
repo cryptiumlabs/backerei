@@ -52,19 +52,6 @@ run (Options configPath command) = do
       let config = Config addr host port from fee dbPath Nothing clientPath clientConfigFile startingCycle cycleLength snapshotInterval Nothing
       writeConfig configPath config
       exitSuccess
-    Status -> withConfig $ \config -> do
-      let conf  = RPC.Config (configHost config) (configPort config)
-          baker = configBakerAddress config
-      delegatedBalance <- RPC.delegatedBalanceAt conf RPC.head baker
-      T.putStrLn $ T.concat ["Delegated balance: ", T.pack $ P.show delegatedBalance, " XTZ"]
-      frozenBalance <- RPC.frozenBalanceAt conf RPC.head baker
-      T.putStrLn $ T.concat ["Frozen balance: ", T.pack $ P.show frozenBalance, " XTZ"]
-      stakingBalance <- RPC.stakingBalanceAt conf RPC.head baker
-      T.putStrLn $ T.concat ["Staking balance: ", T.pack $ P.show stakingBalance, " XTZ"]
-      delegators <- RPC.delegatedContracts conf RPC.head baker
-      T.putStrLn $ T.concat ["Delegators (", T.pack $ P.show (P.length delegators), "):"]
-      mapM_ T.putStrLn delegators
-      exitSuccess
     Monitor -> withConfig $ \config -> do
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
@@ -77,13 +64,13 @@ run (Options configPath command) = do
                     if RPC.headerLevel header == height then return head else helper (Just head)
             T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
-      sendMessage <-  case configTelegram config of
-                        Nothing -> return T.putStrLn
-                        Just (TelegramConfig token channel) -> do
+      (sendMessage, prepend) <-  case configTelegram config of
+                        Nothing -> return (T.putStrLn, "")
+                        Just (TelegramConfig token channel usernamesToNotify) -> do
                           env <- TG.defaultTelegramClientEnv (TG.Token token)
-                          return $ \msg -> do
+                          return (\msg -> do
                             _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channel) msg Nothing Nothing Nothing Nothing Nothing)) env
-                            T.putStrLn msg
+                            T.putStrLn msg, T.intercalate " " usernamesToNotify <> " ")
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
       let cycle = RPC.levelCycle level
@@ -106,14 +93,14 @@ run (Options configPath command) = do
           Right e -> do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
-              [] -> sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
+              [] -> sendMessage $ prepend <> T.concat ["Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
               _ -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
           Left _ -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else
-              sendMessage $ T.concat ["@cwgoes @adrianbrink Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
+              sendMessage $ prepend <> T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
     Payout noDryRun -> do
       fromPassword <- do
         hSetEcho stdin False
