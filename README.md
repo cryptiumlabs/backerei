@@ -7,8 +7,8 @@ a full-node and scans the entire transaction history to determine who the
 delegators are and how much they should get paid. Note that this full-node must
 be trusted.
 
-You can check out all the configuration options in `$HOME/.backerei/`. It allows
-you to set your fee, the url of your full-node, etc.
+You can check out all the configuration options in `$HOME/.backerei.yaml`.
+It allows you to set your fee, the url of your full-node, etc.
 
 But the best part is that it outputs a simple json database file. You can see
 ours [here](https://github.com/cryptiumlabs/library/blob/master/validation-records/tezos/db.json).
