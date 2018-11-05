@@ -146,10 +146,10 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
-            feeRewards    = case finalFees of Just (fees, total) -> balance P.* fees P./ total; Nothing -> 0
-            otherRewards  = (estimatedTotal P.- estimatedBond) P.+ feeRewards
+            feeNet        = case finalFees of Just (fees, total) -> balance P.* fees P./ total; Nothing -> 0
+            otherRewards  = (estimatedTotal P.- estimatedBond)
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
-            totalNet      = bondNet P.+ otherNet
+            totalNet      = bondNet P.+ otherNet P.+ feeNet
         in totalNet
 
       maybePayoutAccountsForCycle cycle db = do
