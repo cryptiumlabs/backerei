@@ -2,23 +2,28 @@
 
 Bäckerei is tooling that we wrote for the Cryptium Tezos Bäckerei. At a high
 level it manages the payments from us, the baker, to our delegators. Bäckerei
-is initialised with a TZ1 address which is used for baking. Then it connects to
+is initialised with a TZ1 address which is used for baking. When run, it connects to
 a full-node and scans the entire transaction history to determine who the
 delegators are and how much they should get paid. Note that this full-node must
 be trusted.
 
 You can check out all the configuration options in `$HOME/.backerei.yaml`.
-It allows you to set your fee, the url of your full-node, etc.
+You can set your fee, the RPC URL of your full node, etc.
 
-But the best part is that it outputs a simple json database file. You can see
+When run, Bäckerei reads and updates a simple JSON database file. You can see
 ours [here](https://github.com/cryptiumlabs/library/blob/master/validation-records/tezos/db.json).
 All your delegators can use that file to check whether they have been paid
-correctly and most of all it allows you to build cool front-ends on it like 
+correctly, and on top of it you can build front-ends on it like 
 [this one](https://tezos.cryptium.ch/dashboard).
 
-It also allows you to specify a different payout address. This means that you
+Bäckerei also allows you to specify a different payout address. This means that you
 can pay from a KT1 account on a separate server instead of having to pay
 directly from your Nano Ledger S.
+
+Note that Bäckerei calculates *idealized* payouts, not *realized* payouts. On-chain
+and off-chain delegators will be paid according to what your baker would have made if
+you had successfully baked and endorsed all scheduled blocks and endorsement slots (plus
+realized fees). This is roughly equivalent to insuring liveness.
 
 ### Usage
 
@@ -26,13 +31,14 @@ directly from your Nano Ledger S.
 
 Initialize Bäckerei with the tz1 address of your baker, for example that of 
 [Cryptium Labs](https://tzscan.io/tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8),
-the address you want to send payouts from, the path to your database file, and 
-the first cycle in which you baked or endorsed blocks:
+the address you want to send payouts from, the alias associated with that address,
+the path to your database file, and the first cycle in which you baked or endorsed blocks:
 
 ```bash
 backerei init \
   --tz1 tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8 \
   --from tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8 \
+  --from-name payout \
   --client-config-file $HOME/.tezos-client/config \
   --starting-cycle 11
 ```

@@ -108,7 +108,7 @@ data OperationMetadata = OperationMetadata {
 
 data OperationResult = OperationResult {
   opresultStatus      :: T.Text,
-  opresultConsumedGas :: T.Text
+  opresultConsumedGas :: Maybe T.Text
 } deriving (Generic, Show)
 
 data FrozenBalanceByCycle = FrozenBalanceByCycle {
