@@ -80,6 +80,10 @@ data CycleInfo = CycleInfo {
   cycleinfoRollSnapshot :: Int
 } deriving (Generic, Show)
 
+newtype RunResult = RunResult {
+  runresultContents :: [OperationContents]
+} deriving (Generic, Show)
+
 data Operation = Operation {
   operationHash     :: T.Text,
   operationProtocol :: T.Text,
@@ -97,8 +101,14 @@ data OperationContents = OperationContents {
   opcontentsAmount      :: Maybe Tezzies
 } deriving (Generic, Show)
 
-newtype OperationMetadata = OperationMetadata {
-  opmetadataDelegate :: Maybe T.Text
+data OperationMetadata = OperationMetadata {
+  opmetadataDelegate        :: Maybe T.Text,
+  opmetadataOperationResult :: Maybe OperationResult
+} deriving (Generic, Show)
+
+data OperationResult = OperationResult {
+  opresultStatus      :: T.Text,
+  opresultConsumedGas :: T.Text
 } deriving (Generic, Show)
 
 data FrozenBalanceByCycle = FrozenBalanceByCycle {
@@ -126,6 +136,9 @@ instance A.FromJSON CurrentLevel where
 instance A.FromJSON CycleInfo where
   parseJSON = customParseJSON
 
+instance A.FromJSON RunResult where
+  parseJSON = customParseJSON
+
 instance A.FromJSON Operation where
   parseJSON = customParseJSON
 
@@ -133,6 +146,9 @@ instance A.FromJSON OperationContents where
   parseJSON = customParseJSON
 
 instance A.FromJSON OperationMetadata where
+  parseJSON = customParseJSON
+
+instance A.FromJSON OperationResult where
   parseJSON = customParseJSON
 
 instance A.FromJSON FrozenBalanceByCycle where

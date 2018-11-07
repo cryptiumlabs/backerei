@@ -21,7 +21,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> IO ()
-payout (Config baker host port from fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous = do
+payout (Config baker host port from fromName fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -75,44 +75,19 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
             knownCycle   = currentCycle - 1
         foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
 
-      maybePayoutDelegatorForCycle cycle (address, delegator) db =
-        case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of
-          (Nothing, Nothing) -> error "should not happen: neither operation hash nor final rewards"
-          (Just _, _)  -> return (db, False)
-          (Nothing, Just amount) | amount == 0 -> return (db, False)
-          (Nothing, Just amount) -> do
+      maybePayoutDelegatorsForCycle cycle delegators db = do
+        let needToPay = P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
+        if null needToPay then return (db, False) else do
+          forM_ needToPay $ \(address, delegator) -> do
+            let Just amount = delegatorFinalRewards delegator
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
-            updatedDelegator <-
-              if noDryRun then do
-                let args = ["-c", clientConfigFile, "transfer", T.pack $ P.show amount, "from", from, "to", address, "--fee", "0.0"]
-                T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a pty"]
-                (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (fmap T.unpack args) (80, 80)
-                waitASecond
-                P.threadWaitReadPty pty
-                stderr <- P.readPty pty
-                P.threadWaitWritePty pty
-                P.writePty pty (B.pack $ T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
-                waitASecond
-                code <- P.waitForProcess handle
-                stdout <- P.readPty pty
-                P.closePty pty
-                if code /= ExitSuccess then do
-                  T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
-                  exitFailure
-                else do
-                  let lines     = T.lines $ T.pack $ B.unpack stdout
-                      start     = "Operation hash: "
-                      filtered  = filter (\l -> T.take (T.length start) l == start) lines
-                  case filtered of
-                    [line] -> do
-                      let hash = T.drop (T.length start) $ T.filter ('\r' /=) line
-                      T.putStrLn $ T.concat ["Operation hash: ", hash]
-                      return delegator { delegatorPayoutOperationHash = Just hash }
-                    _ -> do
-                      T.putStrLn $ T.concat ["Expected operation hash but not found!"]
-                      exitFailure
-              else return delegator
-            return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = M.insert address updatedDelegator $ cycleDelegators c }) cycle $ dbPayoutsByCycle db }, noDryRun)
+          updatedDelegators <-
+            if noDryRun then do
+              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) needToPay
+              hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
+              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) needToPay) delegators
+            else return delegators
+          return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
         case M.lookup cycle payouts of
@@ -126,7 +101,7 @@ payout (Config baker host port from fee databasePath accountDatabasePath clientP
               if balance < total then do
                 T.putStrLn "Balance less than total required to pay cycle, aborting"
                 return (db, False)
-              else foldFirst db (fmap (maybePayoutDelegatorForCycle cycle) (M.toList delegators))
+              else maybePayoutDelegatorsForCycle cycle delegators db
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
@@ -287,3 +262,24 @@ foldFirst obj [] = return (obj, False)
 foldFirst obj (act:rest) = do
   (new, updated) <- act obj
   if updated then return (new, updated) else foldFirst obj rest
+
+sign :: T.Text -> T.Text -> Maybe T.Text -> T.Text -> T.Text -> IO T.Text
+sign clientPath clientConfigFile fromPassword account what = do
+  let args = ["-c", clientConfigFile, "sign", "bytes", "0x03" <> what, "for", account]
+  T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a pty"]
+  (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (fmap T.unpack args) (80, 80)
+  waitASecond
+  P.threadWaitReadPty pty
+  stderr <- P.readPty pty
+  P.threadWaitWritePty pty
+  P.writePty pty (B.pack $ T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
+  waitASecond
+  code <- P.waitForProcess handle
+  stdout <- P.readPty pty
+  P.closePty pty
+  if code /= ExitSuccess then do
+    T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+    exitFailure
+  else do
+    let asText = T.pack $ B.unpack stdout
+    return $ T.drop 13 $ T.take (T.length asText - 2) asText

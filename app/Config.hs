@@ -13,6 +13,7 @@ data Config = Config {
   configHost                :: T.Text,
   configPort                :: Int,
   configFromAddress         :: T.Text,
+  configFromAccountName     :: T.Text,
   configFee                 :: Rational,
   configDatabasePath        :: T.Text,
   configAccountDatabasePath :: Maybe T.Text,

@@ -16,7 +16,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text Rational T.Text T.Text T.Text Int Int Int |
+  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int |
   Monitor |
   Payout Bool Bool
 
@@ -38,7 +38,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -51,6 +51,9 @@ portOptions = option auto (long "port" <> metavar "PORT" <> help "Tezos node RPC
 
 fromOptions :: Parser T.Text
 fromOptions = T.pack <$> strOption (long "from" <> metavar "FROM" <> help "Address to send payouts from")
+
+fromNameOptions :: Parser T.Text
+fromNameOptions = T.pack <$> strOption (long "from-name" <> metavar "NAME" <> help "Local client alias of the address to send payouts from")
 
 feeOptions :: Parser Rational
 feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value (1 / 10))

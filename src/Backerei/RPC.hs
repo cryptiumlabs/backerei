@@ -1,11 +1,18 @@
 module Backerei.RPC where
 
-import qualified Data.Aeson         as A
+import           Control.Applicative
+import           Control.Monad
+import qualified Data.Aeson                as A
+import qualified Data.Base58String.Bitcoin as B
+import qualified Data.ByteString.Base16    as B
+import qualified Data.ByteString.Char8     as B
 import           Data.Default.Class
-import qualified Data.Text          as T
-import           Foundation
-import qualified Network.HTTP.Req   as R
-import qualified Prelude            as P
+import qualified Data.Map                  as M
+import qualified Data.Text                 as T
+import qualified Data.Vector               as V
+import           Foundation                hiding (head)
+import qualified Network.HTTP.Req          as R
+import qualified Prelude                   as P
 
 import           Backerei.Types
 
@@ -58,7 +65,7 @@ totalFrozenRewardsAt config hash delegate = do
 frozenFeesForCycle :: Config -> T.Text -> T.Text -> Int -> IO Tezzies
 frozenFeesForCycle config hash delegate cycle = do
   frozenByCycle <- frozenBalanceByCycle config hash delegate
-  return $ P.sum $ fmap frozenFees $ P.filter ((==) cycle . frozenCycle) frozenByCycle
+  return $ P.sum $ frozenFees <$> P.filter ((==) cycle . frozenCycle) frozenByCycle
 
 stakingBalanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 stakingBalanceAt config hash delegate = get config ["chains", "main", "blocks", hash, "context", "delegates", delegate, "staking_balance"] mempty
@@ -66,8 +73,8 @@ stakingBalanceAt config hash delegate = get config ["chains", "main", "blocks", 
 balanceAt :: Config -> T.Text -> T.Text -> IO Tezzies
 balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "balance"] mempty
 
-counter :: Config -> T.Text -> T.Text -> IO Int
-counter config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "counter"] mempty
+counter :: Config -> T.Text -> T.Text -> IO Integer
+counter config hash contract = P.read `fmap` get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "counter"] mempty
 
 managerKey :: Config -> T.Text -> T.Text -> IO T.Text
 managerKey config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "manager_key"] mempty
@@ -89,6 +96,28 @@ blocks config = get config ["chains", "main", "blocks"] mempty
 protocols :: Config -> IO [T.Text]
 protocols config = get config ["protocols"] mempty
 
+sendTezzies :: Config -> T.Text -> T.Text -> [(T.Text, Tezzies)] -> (T.Text -> T.Text -> IO T.Text) -> IO T.Text
+sendTezzies config from fromName dests sign = do
+  currentCounter <- counter config head from
+  let txns = fmap (\((dest, amount), counter) -> A.toJSON $ M.fromList [("kind" :: T.Text, A.String "transaction"), ("amount", A.toJSON amount), ("source", A.toJSON from),
+                ("destination", A.String dest), ("storage_limit", A.String "0"), ("gas_limit", A.String "500"), ("fee", A.String "0"), ("counter", A.toJSON $ P.show counter)]) (P.zip dests [currentCounter + 1 ..])
+  (BlockHeader hashHead _) <- header config head
+  (BlockMetadata protocolHead _ _) <- metadata config hashHead
+  let fakeSignature = "edsigtXomBKi5CTRf5cjATJWSyaRvhfYNHqSUGrn4SdbYRcGwQrUGjzEfQDTuqHhuA8b2d8NarZjz8TRf65WkpQmo423BtomS8Q" :: T.Text
+      runJSON = A.toJSON $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns), ("signature", A.toJSON fakeSignature)]
+  (RunResult contents) <- post config ["chains", "main", "blocks", head, "helpers", "scripts", "run_operation"] mempty runJSON
+  let succeeded = P.filter ((==) "applied" . opresultStatus . (\(Just x) -> x) . opmetadataOperationResult . opcontentsMetadata) contents
+  when (P.length succeeded /= P.length dests) $ error "simulation failure"
+  let signJSON = A.toJSON $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns)]
+  (bytes :: T.Text) <- post config ["chains", "main", "blocks", head, "helpers", "forge", "operations"] mempty signJSON
+  signature <- sign fromName bytes
+  let base16Signature = T.pack $ B.unpack $ B.encode $ B.toBytes $ B.fromText signature
+      stripped = T.drop 10 $ T.take (T.length base16Signature - 8) base16Signature
+      signedOperation = bytes <> stripped
+      preapplyJSON = A.toJSON $ V.singleton $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns), ("signature", A.toJSON signature), ("protocol", A.toJSON protocolHead)]
+  (_ :: A.Value) <- post config ["chains", "main", "blocks", head, "helpers", "preapply", "operations"] mempty preapplyJSON
+  post config ["injection", "operation"] mempty signedOperation
+
 get :: (A.FromJSON a) => Config -> [T.Text] -> R.Option 'R.Http -> IO a
 get config path options = R.runReq def $ do
   r <- R.req R.GET
@@ -96,4 +125,13 @@ get config path options = R.runReq def $ do
     R.NoReqBody
     R.jsonResponse
     (R.port (configPort config) <> R.responseTimeout 600000000 <> options)
+  return (R.responseBody r)
+
+post :: (A.ToJSON a, A.FromJSON b) => Config -> [T.Text] -> R.Option 'R.Http -> a -> IO b
+post config path options value = R.runReq def $ do
+  r <- R.req R.POST
+    (foldl' (R./:) (R.http (configHost config)) path)
+    (R.ReqBodyJson value)
+    R.jsonResponse
+    (R.port (configPort config) <> R.responseTimeout 600000000 <> R.header "Content-Type" "application/json" <> options)
   return (R.responseBody r)

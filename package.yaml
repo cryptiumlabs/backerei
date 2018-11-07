@@ -54,6 +54,9 @@ library:
     - req
     - data-default-class
     - time
+    - vector
+    - base58string
+    - base16-bytestring
 
 executables:
   backerei:
