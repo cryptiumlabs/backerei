@@ -64,12 +64,12 @@ run (Options configPath command) = do
                     if RPC.headerLevel header == height then return head else helper (Just head)
             T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
-      (sendMessage, prepend) <-  case configTelegram config of
+      (sendMessage, prepend) <- case configTelegram config of
                         Nothing -> return (T.putStrLn, "")
-                        Just (TelegramConfig token channel usernamesToNotify) -> do
+                        Just (TelegramConfig token channelMonitoring _ usernamesToNotify) -> do
                           env <- TG.defaultTelegramClientEnv (TG.Token token)
                           return (\msg -> do
-                            _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channel) msg Nothing Nothing Nothing Nothing Nothing)) env
+                            _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channelMonitoring) msg Nothing Nothing Nothing Nothing Nothing)) env
                             T.putStrLn msg, T.intercalate " " usernamesToNotify <> " ")
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
@@ -101,7 +101,14 @@ run (Options configPath command) = do
               sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
             else
               sendMessage $ prepend <> T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
-    Payout noDryRun continuous -> do
+    Payout noDryRun continuous -> withConfig $ \config -> do
+      notify <- case configTelegram config of
+        Nothing -> return T.putStrLn
+        Just (TelegramConfig token _ channelNotification _) -> do
+          env <- TG.defaultTelegramClientEnv (TG.Token token)
+          return (\msg -> do
+            _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channelNotification) msg Nothing Nothing Nothing Nothing Nothing)) env
+            T.putStrLn $ T.concat ["Notified ", channelNotification, " with \"", msg, "\""])
       fromPassword <- do
         hSetEcho stdin False
         System.IO.putStr "Enter source account password: "
@@ -110,7 +117,7 @@ run (Options configPath command) = do
         putChar '\n'
         hSetEcho stdin True
         return pass
-      withConfig $ \c -> payout c noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword) continuous
+      payout config noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword) continuous notify
 
 aboutDoc ∷ Doc
 aboutDoc = mconcat [

@@ -20,8 +20,8 @@ import qualified Backerei.Types        as RPC
 import           Config
 import           DB
 
-payout :: Config -> Bool -> Maybe T.Text -> Bool -> IO ()
-payout (Config baker host port from fromName fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous = do
+payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
+payout (Config baker host port from fromName fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       maybeUpdateEstimatesForCycle cycle db = do
@@ -85,6 +85,7 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
             if noDryRun then do
               let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) needToPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
+              notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
               return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) needToPay) delegators
             else return delegators
           return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
