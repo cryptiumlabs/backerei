@@ -134,3 +134,7 @@ make clean
 ```bash
 make install
 ```
+
+### Licensing
+
+GPLv3. See [LICENSE](./LICENSE) for full terms.
