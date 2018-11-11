@@ -21,11 +21,14 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
+
+      feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee
 
       maybeUpdateEstimatesForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
+            fee = feeForCycle cycle
         if M.member cycle payouts then return (db, False) else do
           T.putStrLn $ T.concat ["Updating DB with estimates for cycle ", T.pack $ P.show cycle, "..."]
           estimatedRewards <- Delegation.estimatedRewards conf cycleLength cycle baker
@@ -42,6 +45,7 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
 
       maybeUpdateActualForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
+            fee = feeForCycle cycle
         case M.lookup cycle payouts of
           Nothing -> error "should not happen: missed lookup"
           Just cyclePayout ->
