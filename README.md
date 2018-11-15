@@ -91,6 +91,21 @@ and cross-check against a payout database generated locally.
 make build
 ```
 
+#### Regenerating `release.nix`
+
+```bash
+$ nix-shell -p stack2nix
+$ stack2nix --revision 5b266bcd84d570de8ab06cb79b2457c0992080d4 https://github.com/cryptiumlabs/backerei.git > release.nix
+$ nix-build -A backerei release.nix
+```
+* Change the above revision number to whatever is the latest `backerei` release.
+* You'll also need to manually remove some faulty generated code by `stack2nix`.
+  * For example; `stack2nix` might generate `{inherit (pkgs) util;};` on line 27042. Remove the `inherit (pkgs) util;` so just the `{};` remains.
+
+#### Building for Nix
+```bash
+$ nix-build -A backerei release.nix
+```
 #### Testing
 
 ```bash
