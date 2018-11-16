@@ -83,7 +83,7 @@ and cross-check against a payout database generated locally.
 
 ### Development
 
-[Stack](https://haskellstack.org) required.
+[Stack](https://haskellstack.org) required for the build process. Once Bäckerei is installed, you can uninstall Stack.
 
 #### Building
 
@@ -98,6 +98,8 @@ make test
 ```
 
 #### Linting
+
+Not required unless you want to modify the code and contribute upstream.
 
 First, install [Hlint](https://hackage.haskell.org/package/hlint):
 
