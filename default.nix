@@ -1,4 +1,4 @@
 { pkgs ? import <nixpkgs> {}
 }:
 
-(pkgs.callPackage ./nix {}).backerei
+((pkgs.extend (self: super: { util = null; })).callPackage ./nix {}).backerei

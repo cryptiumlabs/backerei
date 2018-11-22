@@ -2,5 +2,4 @@ resolver: lts-12.1
 packages:
 - .
 extra-deps:
-- git: https://github.com/clacke/posix-pty
-  commit: be32455278d72f3195cf3c25981e8054423fa7b0
+- posix-pty-0.2.1.1

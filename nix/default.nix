@@ -1998,6 +1998,8 @@ inherit (pkgs.xorg) libXinerama; inherit (pkgs.xorg) libXrender;};
            pname = "aeson-diff";
            version = "1.1.0.5";
            sha256 = "61d9dd60b6c19dd5aa350b85083ebed3eab8d8611893db1279e55e43d7c7fbcf";
+           revision = "1";
+           editedCabalFile = "0a29nph4a1ny365nhsxlm73mk6zgaam4sfx6knzqjy8dxp1gkj48";
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
@@ -27042,25 +27044,21 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "posix-pty" = callPackage
-        ({ mkDerivation, base, bytestring, fetchgit, process, stdenv, unix
-         , util
-         }:
+        ({ mkDerivation, base, bytestring, process, stdenv, unix, util }:
          mkDerivation {
            pname = "posix-pty";
            version = "0.2.1.1";
-           src = fetchgit {
-             url = "https://github.com/clacke/posix-pty";
-             sha256 = "1hgh29wg6m07j42wk69v69q6lk55npxjz4clsy8r8jzla46nvpgb";
-             rev = "be32455278d72f3195cf3c25981e8054423fa7b0";
-             fetchSubmodules = true;
-           };
-           libraryHaskellDepends = [ base bytestring process unix util ];
+           sha256 = "a2c50cec87434afa5758fe79efa95ac730843be689dac8a1d78a9e7d66fdbbb9";
+           revision = "1";
+           editedCabalFile = "1dhxxwlv69bczi7mbhdd9f3s9nnjb4b3jf9mlgdjg7wxqh84zrgi";
+           libraryHaskellDepends = [ base bytestring process unix ];
+           librarySystemDepends = [ util ];
            doHaddock = false;
            doCheck = false;
            homepage = "https://bitbucket.org/merijnv/posix-pty";
            description = "Pseudo terminal interaction with subprocesses";
            license = stdenv.lib.licenses.bsd3;
-         }) {};
+         }) {inherit (pkgs) util;};
       "post-mess-age" = callPackage
         ({ mkDerivation, base, stdenv }:
          mkDerivation {
