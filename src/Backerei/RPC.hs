@@ -100,7 +100,7 @@ sendTezzies :: Config -> T.Text -> T.Text -> [(T.Text, Tezzies)] -> (T.Text -> T
 sendTezzies config from fromName dests sign = do
   currentCounter <- counter config head from
   let txns = fmap (\((dest, amount), counter) -> A.toJSON $ M.fromList [("kind" :: T.Text, A.String "transaction"), ("amount", A.toJSON amount), ("source", A.toJSON from),
-                ("destination", A.String dest), ("storage_limit", A.String "0"), ("gas_limit", A.String "500"), ("fee", A.String "0"), ("counter", A.toJSON $ P.show counter)]) (P.zip dests [currentCounter + 1 ..])
+                ("destination", A.String dest), ("storage_limit", A.String "0"), ("gas_limit", A.String "11000"), ("fee", A.String "0"), ("counter", A.toJSON $ P.show counter)]) (P.zip dests [currentCounter + 1 ..])
   (BlockHeader hashHead _) <- header config head
   (BlockMetadata protocolHead _ _) <- metadata config hashHead
   let fakeSignature = "edsigtXomBKi5CTRf5cjATJWSyaRvhfYNHqSUGrn4SdbYRcGwQrUGjzEfQDTuqHhuA8b2d8NarZjz8TRf65WkpQmo423BtomS8Q" :: T.Text
