@@ -77,16 +77,19 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
 
       maybePayoutDelegatorsForCycle cycle delegators db = do
         let needToPay = P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
-        if null needToPay then return (db, False) else do
-          forM_ needToPay $ \(address, delegator) -> do
+            toPay     = P.take 100 needToPay
+        if null toPay then return (db, False) else do
+          forM_ toPay $ \(address, delegator) -> do
             let Just amount = delegatorFinalRewards delegator
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
           updatedDelegators <-
             if noDryRun then do
-              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) needToPay
+              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
-              notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
-              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) needToPay) delegators
+              if length toPay == length needToPay then do
+                notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
+              else return ()
+              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators
             else return delegators
           return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
