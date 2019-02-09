@@ -123,7 +123,7 @@ aboutDoc ∷ Doc
 aboutDoc = mconcat [
   text "Bäckerei – Tooling for the Cryptium Tezos Bäckerei",
   line,
-  text "© 2018 Cryptium Labs • https://cryptium.ch"
+  text "© 2018-2019 Cryptium Labs • https://cryptium.ch"
   ]
 
 versionDoc ∷ Doc

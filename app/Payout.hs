@@ -57,16 +57,17 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
               hash <- Delegation.hashToQuery conf (cycle + 1) cycleLength
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
+              lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength cycle baker
+              T.putStrLn $ T.concat ["Lost endorsement rewards due to other-baker downtime for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show lostEndorsementRewards]
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
-                  extraRewards = feeRewards
+                  extraRewards = feeRewards P.- lostEndorsementRewards
                   realizedRewards = feeRewards P.+ RPC.frozenRewards thisCycle
                   estimatedRewards = cycleEstimatedTotalRewards cyclePayout
                   paidRewards = estimatedRewards P.+ extraRewards
                   realizedDifference = realizedRewards P.- paidRewards
                   estimatedDifference = estimatedRewards P.- paidRewards
                   finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
-              when (estimatedDifference > 0) $ error "should not happen: positive difference"
               ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
@@ -125,12 +126,12 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
-      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
+      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
       calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) finalFees balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
-            feeNet        = case finalFees of Just (fees, total) -> balance P.* fees P./ total; Nothing -> 0
+            feeNet        = case finalFees of Just (fees, lostEndorsementRewards, total) -> balance P.* (fees P.- lostEndorsementRewards) P./ total; Nothing -> 0
             otherRewards  = (estimatedTotal P.- estimatedBond)
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
             totalNet      = bondNet P.+ otherNet P.+ feeNet
@@ -190,12 +191,13 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
           snapshotBalance <- RPC.delegateBalanceAt conf snapshotHash baker
           hash <- Delegation.hashToQuery conf (finishedCycle + 2) cycleLength
           fees <- RPC.frozenFeesForCycle conf hash baker finishedCycle
+          lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength finishedCycle baker
           T.putStrLn $ T.concat ["Total fees for cycle ", T.pack $ P.show finishedCycle, ": ", T.pack $ P.show fees]
           let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
-              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
+              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, lostEndorsementRewards, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
               remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
               updatedRemainder  = remainder { accountFinalRewards = Just remainderRewards }
