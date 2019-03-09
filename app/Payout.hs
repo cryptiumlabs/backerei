@@ -53,7 +53,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybeUpdateTimestamps db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
-        foldFirst db (fmap maybeUpdateTimestampsForCycle [startingCycle .. currentCycle])
+        foldFirst db (fmap maybeUpdateTimestampsForCycle [startingCycle .. currentCycle - 1])
 
       maybeUpdateEstimatesForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
