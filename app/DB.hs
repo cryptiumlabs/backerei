@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy                     as BL
 import           Data.Char                                (isLower, toLower)
 import qualified Data.Map                                 as M
 import qualified Data.Text                                as T
+import qualified Data.Time.Clock                          as C
 import           Foundation
 import           GHC.Generics
 import qualified Prelude                                  as P
@@ -57,12 +58,14 @@ data AccountDB = AccountDB {
 } deriving (Generic, Show)
 
 data AccountsState = AccountsState {
-  stateSnapshotHeight :: Int,
-  stateTotalBalance   :: Tezzies,
-  statePreferred      :: M.Map T.Text AccountCycleState,
-  stateRemainder      :: AccountCycleState,
-  stateFinalized      :: Bool,
-  statePaid           :: Bool
+  stateSnapshotHeight      :: Int,
+  stateTotalBalance        :: Tezzies,
+  statePreferred           :: M.Map T.Text AccountCycleState,
+  stateRemainder           :: AccountCycleState,
+  stateFinalized           :: Bool,
+  statePaid                :: Bool,
+  stateCycleStartTimestamp :: Maybe C.UTCTime,
+  stateCycleEndTimestamp   :: Maybe C.UTCTime
 } deriving (Generic, Show)
 
 data AccountTx = AccountTx {

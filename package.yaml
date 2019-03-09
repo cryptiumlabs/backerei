@@ -25,6 +25,7 @@ dependencies:
 - text
 - containers
 - bytestring
+- time
 
 default-extensions:
   - NoImplicitPrelude
@@ -53,7 +54,6 @@ library:
     - text
     - req
     - data-default-class
-    - time
     - vector
     - base58string
     - base16-bytestring

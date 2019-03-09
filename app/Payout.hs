@@ -26,6 +26,35 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
       feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee
 
+      maybeUpdateTimestampsForCycle cycle db = do
+        let history = accountHistory db
+        case M.lookup cycle history of
+          Nothing -> return (db, False)
+          Just state -> do
+            case stateCycleStartTimestamp state of
+              Nothing -> do
+                let startLevel = Delegation.startingBlock cycle cycleLength
+                hash <- Delegation.blockHashByLevel conf startLevel
+                header <- RPC.header conf hash
+                let startTimestamp = RPC.headerTimestamp header
+                    newState = state { stateCycleStartTimestamp = Just startTimestamp }
+                return (db { accountHistory = M.insert cycle newState history }, True)
+              Just _  -> do
+                case stateCycleEndTimestamp state of
+                  Nothing -> do
+                    let endLevel = Delegation.endingBlock cycle cycleLength
+                    hash <- Delegation.blockHashByLevel conf endLevel
+                    header <- RPC.header conf hash
+                    let endTimestamp = RPC.headerTimestamp header
+                        newState = state { stateCycleEndTimestamp = Just endTimestamp }
+                    return (db { accountHistory = M.insert cycle newState history }, True)
+                  Just _  -> return (db, False)
+
+      maybeUpdateTimestamps db = do
+        currentLevel <- RPC.currentLevel conf RPC.head
+        let currentCycle = RPC.levelCycle currentLevel
+        foldFirst db (fmap maybeUpdateTimestampsForCycle [startingCycle .. currentCycle])
+
       maybeUpdateEstimatesForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
             fee = feeForCycle cycle
@@ -176,7 +205,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
                 remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (accountEstimatedRewards . snd) accounts)
                 preferred = M.fromList accounts
                 remainder = AccountCycleState remainderBalance 0 remainderRewards Nothing
-                state = AccountsState snapshot totalBalance preferred remainder False False
+                state = AccountsState snapshot totalBalance preferred remainder False False Nothing Nothing
             T.putStrLn $ T.concat ["Estimated remainder balance: ", T.pack $ P.show remainderBalance, ", estimated remainder rewards: ", T.pack $ P.show remainderRewards]
             return (db { accountHistory = M.insert knownCycle state history }, True)
 
@@ -250,7 +279,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
                   T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
                   loop $ Just $ AccountDB (-1) [] [] [] M.empty
                 Just prev -> do
-                  (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
+                  (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB, maybeUpdateTimestamps]
                   if updated then loop (Just res) else return (res, ())
         loop db
 
