@@ -32,8 +32,9 @@ instance A.ToJSON Tezzies where
   toJSON (Tezzies (MkFixed t)) = A.toJSON $ T.pack $ P.show t
 
 data BlockHeader = BlockHeader {
-  headerHash  :: T.Text,
-  headerLevel :: Int
+  headerHash      :: T.Text,
+  headerLevel     :: Int,
+  headerTimestamp :: C.UTCTime
 } deriving (Generic, Show)
 
 data BlockMetadata = BlockMetadata {
