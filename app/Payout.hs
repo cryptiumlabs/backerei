@@ -123,7 +123,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               if length toPay == length needToPay then do
                 notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
               else return ()
-              threadDelay 240000000
+              threadDelay 300000000
               return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators
             else return delegators
           return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
@@ -264,12 +264,9 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             T.putStrLn $ T.concat ["Creating new DB in file ", databasePath, "..."]
             step databasePath (Just $ DB M.empty)
           Just prev -> do
-            let loop = do
-                  (res, updated) <- foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
-                  if updated then step databasePath (Just res) else return (res, ())
-            loop
+            foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
 
-      loop = withDB (T.unpack databasePath) (step databasePath)
+      loop = withDBLoop (T.unpack databasePath) (step databasePath)
 
       stepAccounts accountDatabasePath db = do
         mainDB <- mustReadDB (T.unpack databasePath)
