@@ -7,6 +7,7 @@ import qualified Data.ByteString.Lazy                     as BL
 import           Data.Char                                (isLower, toLower)
 import qualified Data.Map                                 as M
 import qualified Data.Text                                as T
+import qualified Data.Time.Clock                          as C
 import           Foundation
 import           GHC.Generics
 import qualified Prelude                                  as P
@@ -17,6 +18,11 @@ import           Backerei.Types                           (Tezzies)
 
 withDB :: forall a . P.FilePath -> (Maybe DB -> IO (DB, a)) -> IO a
 withDB = withFile
+
+withDBLoop :: forall a . P.FilePath -> (Maybe DB -> IO (DB, Bool)) -> IO ()
+withDBLoop path func = do
+  updated <- withFile path func
+  if updated then withDBLoop path func else return ()
 
 withAccountDB :: forall a . P.FilePath -> (Maybe AccountDB -> IO (AccountDB, a)) -> IO a
 withAccountDB = withFile
@@ -57,12 +63,14 @@ data AccountDB = AccountDB {
 } deriving (Generic, Show)
 
 data AccountsState = AccountsState {
-  stateSnapshotHeight :: Int,
-  stateTotalBalance   :: Tezzies,
-  statePreferred      :: M.Map T.Text AccountCycleState,
-  stateRemainder      :: AccountCycleState,
-  stateFinalized      :: Bool,
-  statePaid           :: Bool
+  stateSnapshotHeight      :: Int,
+  stateTotalBalance        :: Tezzies,
+  statePreferred           :: M.Map T.Text AccountCycleState,
+  stateRemainder           :: AccountCycleState,
+  stateFinalized           :: Bool,
+  statePaid                :: Bool,
+  stateCycleStartTimestamp :: Maybe C.UTCTime,
+  stateCycleEndTimestamp   :: Maybe C.UTCTime
 } deriving (Generic, Show)
 
 data AccountTx = AccountTx {

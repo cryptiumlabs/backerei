@@ -14,7 +14,7 @@ data Config = Config {
   configPort                :: Int,
   configFromAddress         :: T.Text,
   configFromAccountName     :: T.Text,
-  configFee                 :: Rational,
+  configFees                :: [(Int, Rational)],
   configDatabasePath        :: T.Text,
   configAccountDatabasePath :: Maybe T.Text,
   configClientPath          :: T.Text,

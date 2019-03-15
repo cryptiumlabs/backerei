@@ -21,11 +21,43 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName fee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
+
+      feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee
+
+      maybeUpdateTimestampsForCycle cycle db = do
+        let history = accountHistory db
+        case M.lookup cycle history of
+          Nothing -> return (db, False)
+          Just state -> do
+            case stateCycleStartTimestamp state of
+              Nothing -> do
+                let startLevel = Delegation.startingBlock cycle cycleLength
+                hash <- Delegation.blockHashByLevel conf startLevel
+                header <- RPC.header conf hash
+                let startTimestamp = RPC.headerTimestamp header
+                    newState = state { stateCycleStartTimestamp = Just startTimestamp }
+                return (db { accountHistory = M.insert cycle newState history }, True)
+              Just _  -> do
+                case stateCycleEndTimestamp state of
+                  Nothing -> do
+                    let endLevel = Delegation.endingBlock cycle cycleLength
+                    hash <- Delegation.blockHashByLevel conf endLevel
+                    header <- RPC.header conf hash
+                    let endTimestamp = RPC.headerTimestamp header
+                        newState = state { stateCycleEndTimestamp = Just endTimestamp }
+                    return (db { accountHistory = M.insert cycle newState history }, True)
+                  Just _  -> return (db, False)
+
+      maybeUpdateTimestamps db = do
+        currentLevel <- RPC.currentLevel conf RPC.head
+        let currentCycle = RPC.levelCycle currentLevel
+        foldFirst db (fmap maybeUpdateTimestampsForCycle [startingCycle .. currentCycle - 1])
 
       maybeUpdateEstimatesForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
+            fee = feeForCycle cycle
         if M.member cycle payouts then return (db, False) else do
           T.putStrLn $ T.concat ["Updating DB with estimates for cycle ", T.pack $ P.show cycle, "..."]
           estimatedRewards <- Delegation.estimatedRewards conf cycleLength cycle baker
@@ -42,6 +74,7 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
 
       maybeUpdateActualForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
+            fee = feeForCycle cycle
         case M.lookup cycle payouts of
           Nothing -> error "should not happen: missed lookup"
           Just cyclePayout ->
@@ -53,16 +86,17 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
               let stolenBlocks = fmap (\(a, b, c, d, e) -> StolenBlock a b c d e) stolen
               hash <- Delegation.hashToQuery conf (cycle + 1) cycleLength
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
+              lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength cycle baker
+              T.putStrLn $ T.concat ["Lost endorsement rewards due to other-baker downtime for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show lostEndorsementRewards]
               let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
                   feeRewards = RPC.frozenFees thisCycle
-                  extraRewards = feeRewards
+                  extraRewards = feeRewards P.- lostEndorsementRewards
                   realizedRewards = feeRewards P.+ RPC.frozenRewards thisCycle
                   estimatedRewards = cycleEstimatedTotalRewards cyclePayout
                   paidRewards = estimatedRewards P.+ extraRewards
                   realizedDifference = realizedRewards P.- paidRewards
                   estimatedDifference = estimatedRewards P.- paidRewards
                   finalTotalRewards = CycleRewards realizedRewards paidRewards realizedDifference estimatedDifference
-              when (estimatedDifference > 0) $ error "should not happen: positive difference"
               ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
@@ -77,16 +111,20 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
 
       maybePayoutDelegatorsForCycle cycle delegators db = do
         let needToPay = P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
-        if null needToPay then return (db, False) else do
-          forM_ needToPay $ \(address, delegator) -> do
+            toPay     = P.take 100 needToPay
+        if null toPay then return (db, False) else do
+          forM_ toPay $ \(address, delegator) -> do
             let Just amount = delegatorFinalRewards delegator
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
           updatedDelegators <-
             if noDryRun then do
-              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) needToPay
+              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
-              notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
-              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) needToPay) delegators
+              if length toPay == length needToPay then do
+                notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
+              else return ()
+              threadDelay 300000000
+              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators
             else return delegators
           return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
       maybePayoutForCycle cycle db = do
@@ -117,12 +155,12 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
-      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
+      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
       calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) finalFees balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
-            feeNet        = case finalFees of Just (fees, total) -> balance P.* fees P./ total; Nothing -> 0
+            feeNet        = case finalFees of Just (fees, lostEndorsementRewards, total) -> balance P.* (fees P.- lostEndorsementRewards) P./ total; Nothing -> 0
             otherRewards  = (estimatedTotal P.- estimatedBond)
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
             totalNet      = bondNet P.+ otherNet P.+ feeNet
@@ -167,7 +205,7 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
                 remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (accountEstimatedRewards . snd) accounts)
                 preferred = M.fromList accounts
                 remainder = AccountCycleState remainderBalance 0 remainderRewards Nothing
-                state = AccountsState snapshot totalBalance preferred remainder False False
+                state = AccountsState snapshot totalBalance preferred remainder False False Nothing Nothing
             T.putStrLn $ T.concat ["Estimated remainder balance: ", T.pack $ P.show remainderBalance, ", estimated remainder rewards: ", T.pack $ P.show remainderRewards]
             return (db { accountHistory = M.insert knownCycle state history }, True)
 
@@ -182,12 +220,13 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
           snapshotBalance <- RPC.delegateBalanceAt conf snapshotHash baker
           hash <- Delegation.hashToQuery conf (finishedCycle + 2) cycleLength
           fees <- RPC.frozenFeesForCycle conf hash baker finishedCycle
+          lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength finishedCycle baker
           T.putStrLn $ T.concat ["Total fees for cycle ", T.pack $ P.show finishedCycle, ": ", T.pack $ P.show fees]
           let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
-              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
+              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, lostEndorsementRewards, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
               remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
               updatedRemainder  = remainder { accountFinalRewards = Just remainderRewards }
@@ -225,12 +264,9 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
             T.putStrLn $ T.concat ["Creating new DB in file ", databasePath, "..."]
             step databasePath (Just $ DB M.empty)
           Just prev -> do
-            let loop = do
-                  (res, updated) <- foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
-                  if updated then step databasePath (Just res) else return (res, ())
-            loop
+            foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
 
-      loop = withDB (T.unpack databasePath) (step databasePath)
+      loop = withDBLoop (T.unpack databasePath) (step databasePath)
 
       stepAccounts accountDatabasePath db = do
         mainDB <- mustReadDB (T.unpack databasePath)
@@ -240,7 +276,7 @@ payout (Config baker host port from fromName fee databasePath accountDatabasePat
                   T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
                   loop $ Just $ AccountDB (-1) [] [] [] M.empty
                 Just prev -> do
-                  (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB]
+                  (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB, maybeUpdateTimestamps]
                   if updated then loop (Just res) else return (res, ())
         loop db
 

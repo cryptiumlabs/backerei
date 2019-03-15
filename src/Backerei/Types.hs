@@ -11,6 +11,15 @@ import           Foundation
 import           GHC.Generics
 import qualified Prelude          as P
 
+fst3 :: (a, b, c) -> a
+fst3 (x, _, _) = x
+
+snd3 :: (a, b, c) -> b
+snd3 (_, y, _) = y
+
+thd3 :: (a, b, c) -> c
+thd3 (_, _, z) = z
+
 data XTZ
 
 instance HasResolution XTZ where
@@ -32,8 +41,10 @@ instance A.ToJSON Tezzies where
   toJSON (Tezzies (MkFixed t)) = A.toJSON $ T.pack $ P.show t
 
 data BlockHeader = BlockHeader {
-  headerHash  :: T.Text,
-  headerLevel :: Int
+  headerHash      :: T.Text,
+  headerLevel     :: Int,
+  headerPriority  :: Int,
+  headerTimestamp :: C.UTCTime
 } deriving (Generic, Show)
 
 data BlockMetadata = BlockMetadata {

@@ -4,6 +4,7 @@ import           Control.Applicative
 import           Control.Monad
 import           Data.List           (zip)
 import qualified Data.Text           as T
+import qualified Data.Text.IO        as T
 import           Foundation
 import qualified Prelude             as P
 
@@ -38,7 +39,7 @@ snapshotLevel config cycle cycleLength snapshotInterval = do
 
 hashToQuery :: RPC.Config -> Int -> Int -> IO T.Text
 hashToQuery config cycle cycleLength = do
-  (BlockHeader hashHead levelHead) <- RPC.header config RPC.head
+  (BlockHeader hashHead levelHead _ _) <- RPC.header config RPC.head
   currentLevel <- RPC.currentLevel config hashHead
   let blocksAgo = cycleLength P.* (levelCycle currentLevel - cycle)
       levelToQuery = min (levelHead P.- blocksAgo) levelHead
@@ -46,6 +47,33 @@ hashToQuery config cycle cycleLength = do
 
 snapshotHeight :: Int -> Int -> Int -> Int -> Int
 snapshotHeight cycle snapshot cycleLength snapshotInterval = (cycle - 7) * cycleLength + ((snapshot + 1) * snapshotInterval)
+
+lostEndorsementRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
+lostEndorsementRewards config cycleLength cycle delegate = do
+  hash <- hashToQuery config cycle cycleLength
+  endorsingRights <- RPC.endorsingRightsFor config hash delegate cycle
+  let endorsingReward :: Tezzies
+      endorsingReward = 2
+  actualRewards' <- flip mapM endorsingRights $ \right -> do
+    let level = endorsingLevel right
+    hash <- blockHashByLevel config level
+    header <- RPC.header config hash
+    metadata <- RPC.metadata config hash
+    let baseReward = if metadataBaker metadata == delegate then endorsingReward else endorsingReward P./ (fromIntegral (headerPriority header P.+ 1))
+        reward = baseReward P.* (fromIntegral $ P.length $ endorsingSlots right)
+    return reward
+  let expectedRewards :: Tezzies
+      expectedRewards = endorsingReward P.* fromIntegral (P.sum $ fmap (P.length . endorsingSlots) endorsingRights)
+      actualRewards :: Tezzies
+      actualRewards = P.sum actualRewards'
+  T.putStrLn $ T.concat ["Expected / actual endorsement rewards (plus self-baked insurance) for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show expectedRewards, " / ", T.pack $ P.show actualRewards]
+  return (expectedRewards P.- actualRewards)
+
+startingBlock :: Int -> Int -> Int
+startingBlock cycle cycleLength = (cycle * cycleLength) + 1
+
+endingBlock :: Int -> Int -> Int
+endingBlock cycle cycleLength = ((cycle + 1) * cycleLength)
 
 estimatedRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
 estimatedRewards config cycleLength cycle delegate = do
@@ -62,8 +90,8 @@ estimatedRewards config cycleLength cycle delegate = do
 
 blockHashByLevel :: RPC.Config -> Int -> IO T.Text
 blockHashByLevel config level = do
-  (BlockHeader hashHead levelHead) <- RPC.header config RPC.head
-  (BlockHeader hash' level') <- RPC.header config (T.concat [hashHead, "~", T.pack $ P.show $ levelHead - level])
+  (BlockHeader hashHead levelHead _ _) <- RPC.header config RPC.head
+  (BlockHeader hash' level' _ _) <- RPC.header config (T.concat [hashHead, "~", T.pack $ P.show $ levelHead - level])
   when (level /= level') $ error "should not happen: tezos rpc fault, wrong level"
   return hash'
 
