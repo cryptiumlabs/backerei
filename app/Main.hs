@@ -56,6 +56,11 @@ run (Options configPath command) = do
       writeConfig configPath config
       exitSuccess
     Monitor -> withConfig $ \config -> do
+      event <- case configRiemann config of
+                 Nothing -> return $ const $ return ()
+                 Just (RiemannConfig host port) -> do
+                   conn <- Riemann.tcpConnection (T.unpack host) port
+                   return $ Riemann.sendEvents conn . Seq.singleton
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
           waitUntil height = do
@@ -63,15 +68,9 @@ run (Options configPath command) = do
                   [head]:_ <- RPC.blocks conf
                   if Just head == prev then threadDelay (P.round (1e6 :: Double)) >> helper prev else do
                     header <- RPC.header conf head
-                    T.putStrLn $ T.concat ["Current height: ", T.pack $ P.show $ RPC.headerLevel header]
+                    event $ Riemann.ok "tezos" & Riemann.metric (RPC.headerLevel header) & Riemann.description ("Hash: " <> T.unpack (RPC.headerHash header))
                     if RPC.headerLevel header == height then return head else helper (Just head)
-            T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
-      event <- case configRiemann config of
-                 Nothing -> return $ const $ return ()
-                 Just (RiemannConfig host port) -> do
-                   conn <- Riemann.tcpConnection (T.unpack host) port
-                   return $ Riemann.sendEvents conn . Seq.singleton
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
       let cycle = RPC.levelCycle level
@@ -88,20 +87,19 @@ run (Options configPath command) = do
           levelToWait (Left b)  = RPC.bakingLevel b
           allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) (fmap Right endorsing <> fmap Left baking)
       forM_ allRights $ \right -> do
-        T.putStrLn $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
         hash <- waitUntil (levelToWait right)
         case right of
           Right e -> do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
-              [] -> event $ Riemann.failure "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e))
-              _ -> event $ Riemann.ok "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e))
+              [] -> event $ Riemann.failure "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
+              _ -> event $ Riemann.ok "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
           Left _ -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then
-              event $ Riemann.ok "baker" & Riemann.description ("hash " P.++ P.show hash)
+              event $ Riemann.ok "baker" & Riemann.description ("hash " P.++ P.show hash) & Riemann.ttl 86400
             else
-              event $ Riemann.failure "baker" & Riemann.description ("stolen by " P.++ T.unpack (RPC.metadataBaker metadata))
+              event $ Riemann.failure "baker" & Riemann.description ("stolen by " P.++ T.unpack (RPC.metadataBaker metadata)) & Riemann.ttl 86400
     Payout noDryRun continuous -> withConfig $ \config -> do
       notify <- case configTelegram config of
         Nothing -> return T.putStrLn
