@@ -155,7 +155,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
-      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> RPC.Tezzies
+      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> AccountRewards
       calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) finalFees balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
@@ -163,8 +163,9 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             feeNet        = case finalFees of Just (fees, lostEndorsementRewards, total) -> balance P.* (fees P.- lostEndorsementRewards) P./ total; Nothing -> 0
             otherRewards  = (estimatedTotal P.- estimatedBond)
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
-            totalNet      = bondNet P.+ otherNet P.+ feeNet
-        in totalNet
+            selfNet       = bondNet P.+ feeNet
+            totalNet      = selfNet P.+ otherNet
+        in AccountRewards selfNet otherNet totalNet
 
       maybePayoutAccountsForCycle cycle db = do
         -- Pay out released rewards (looking up balances) as virtual transactions, then mark cycle paid.
@@ -176,7 +177,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             T.putStrLn $ T.concat ["Paying out internal accounts for cycle ", T.pack $ P.show unlockedCycle, "..."]
             let cycleStart = cycle P.* cycleLength
                 makeTx :: (T.Text, AccountCycleState) -> VirtualTx
-                makeTx (account, AccountCycleState _ _ _ (Just finalRewards)) = VirtualTx "" account cycleStart finalRewards
+                makeTx (account, AccountCycleState _ _ _ (Just finalRewards)) = VirtualTx "" account cycleStart (rewardsTotal finalRewards)
                 makeTx _ = error "should not happen: no final rewards"
                 txs = fmap makeTx (M.toList $ statePreferred state)
                 newState = state { statePaid = True }
@@ -202,9 +203,9 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
                 bakerRewards = cycleEstimatedBakerRewards cyclePayout
                 accounts = fmap (\(account, splits) -> (account, let b = balanceAt db snapshot account in let split = snd $ P.last $ P.filter (\x -> fst x < snapshot) splits in AccountCycleState b split (calculateRewards bakerRewards Nothing b totalBalance split) Nothing)) (accountsPreferred db)
                 remainderBalance = totalBalance P.- P.sum (fmap (accountStakingBalance . snd) accounts)
-                remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (accountEstimatedRewards . snd) accounts)
+                remainderRewards = bakerTotalRewards bakerRewards P.- P.sum (fmap (rewardsTotal . accountEstimatedRewards . snd) accounts)
                 preferred = M.fromList accounts
-                remainder = AccountCycleState remainderBalance 0 remainderRewards Nothing
+                remainder = AccountCycleState remainderBalance 0 (AccountRewards 0 0 remainderRewards) Nothing
                 state = AccountsState snapshot totalBalance preferred remainder False False Nothing Nothing
             T.putStrLn $ T.concat ["Estimated remainder balance: ", T.pack $ P.show remainderBalance, ", estimated remainder rewards: ", T.pack $ P.show remainderRewards]
             return (db { accountHistory = M.insert knownCycle state history }, True)
@@ -227,9 +228,9 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
               updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, lostEndorsementRewards, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
-              remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (fromJust . accountFinalRewards . snd) updatedPreferred)
+              remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (rewardsTotal . fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
-              updatedRemainder  = remainder { accountFinalRewards = Just remainderRewards }
+              updatedRemainder  = remainder { accountFinalRewards = Just $ AccountRewards 0 0 remainderRewards }
               updatedState      = state { stateFinalized = True, statePreferred = M.fromList updatedPreferred, stateRemainder = updatedRemainder }
           T.putStrLn $ T.concat ["Estimated remainder rewards: ", T.pack $ P.show (accountEstimatedRewards remainder), ", final remainder rewards: ", T.pack $ P.show remainderRewards]
           return (db { accountHistory = M.insert finishedCycle updatedState history }, True)

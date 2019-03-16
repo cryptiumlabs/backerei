@@ -93,8 +93,14 @@ data TxKind = Debit | Credit deriving (Generic, Show)
 data AccountCycleState = AccountCycleState {
   accountStakingBalance   :: Tezzies,
   accountSplit            :: Rational,
-  accountEstimatedRewards :: Tezzies,
-  accountFinalRewards     :: Maybe Tezzies
+  accountEstimatedRewards :: AccountRewards,
+  accountFinalRewards     :: Maybe AccountRewards
+} deriving (Generic, Show)
+
+data AccountRewards = AccountRewards {
+  rewardsSelf         :: Tezzies,
+  rewardsRevenueShare :: Tezzies,
+  rewardsTotal        :: Tezzies
 } deriving (Generic, Show)
 
 data CyclePayout = CyclePayout {
@@ -183,6 +189,13 @@ instance A.FromJSON AccountCycleState where
   parseJSON = customParseJSON
 
 instance A.ToJSON AccountCycleState where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance A.FromJSON AccountRewards where
+  parseJSON = customParseJSON
+
+instance A.ToJSON AccountRewards where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
