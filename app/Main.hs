@@ -68,7 +68,7 @@ run (Options configPath command) = do
                   [head]:_ <- RPC.blocks conf
                   if Just head == prev then threadDelay (P.round (1e6 :: Double)) >> helper prev else do
                     header <- RPC.header conf head
-                    event $ Riemann.ok "tezos" & Riemann.metric (RPC.headerLevel header) & Riemann.description ("Hash: " <> T.unpack (RPC.headerHash header))
+                    event $ Riemann.ok "tezos" & Riemann.metric (RPC.headerLevel header) & Riemann.description ("Hash: " <> T.unpack (RPC.headerHash header)) & Riemann.ttl 360
                     if RPC.headerLevel header == height then return head else helper (Just head)
             helper Nothing
       [head]:_ <- RPC.blocks conf
