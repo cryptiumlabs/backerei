@@ -92,14 +92,14 @@ run (Options configPath command) = do
           Right e -> do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
-              [] -> event $ Riemann.failure "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
-              _ -> event $ Riemann.ok "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
+              [] -> event $ Riemann.failure "endorser" & Riemann.metric (RPC.endorsingLevel e) & Riemann.description ("Hash: " <> T.unpack hash) & Riemann.ttl 86400
+              _ -> event $ Riemann.ok "endorser" & Riemann.metric (RPC.endorsingLevel e) & Riemann.description ("Hash: " <> T.unpack hash) & Riemann.ttl 86400
           Left _ -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then
-              event $ Riemann.ok "baker" & Riemann.description ("hash " P.++ P.show hash) & Riemann.ttl 86400
+              event $ Riemann.ok "baker" & Riemann.metric (levelToWait right) & Riemann.description ("Hash: " <> P.show hash) & Riemann.ttl 86400
             else
-              event $ Riemann.failure "baker" & Riemann.description ("stolen by " P.++ T.unpack (RPC.metadataBaker metadata)) & Riemann.ttl 86400
+              event $ Riemann.failure "baker" & Riemann.metric (levelToWait right) & Riemann.description ("Stolen by: " P.++ T.unpack (RPC.metadataBaker metadata)) & Riemann.ttl 86400
     Payout noDryRun continuous -> withConfig $ \config -> do
       notify <- case configTelegram config of
         Nothing -> return T.putStrLn
