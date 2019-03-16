@@ -27,10 +27,8 @@ data Config = Config {
 } deriving (Generic)
 
 data TelegramConfig = TelegramConfig {
-  telegramToken                       :: T.Text,
-  telegramMonitoringChannel           :: T.Text,
-  telegramNotificationChannel         :: T.Text,
-  telegramUsernamesToNotifyOnDowntime :: [T.Text]
+  telegramToken               :: T.Text,
+  telegramNotificationChannel :: T.Text
 } deriving (Generic)
 
 data RiemannConfig = RiemannConfig {

@@ -103,7 +103,7 @@ run (Options configPath command) = do
     Payout noDryRun continuous -> withConfig $ \config -> do
       notify <- case configTelegram config of
         Nothing -> return T.putStrLn
-        Just (TelegramConfig token _ channelNotification _) -> do
+        Just (TelegramConfig token channelNotification) -> do
           env <- TG.defaultTelegramClientEnv (TG.Token token)
           return (\msg -> do
             _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channelNotification) msg Nothing Nothing Nothing Nothing Nothing)) env
