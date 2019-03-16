@@ -21,7 +21,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee

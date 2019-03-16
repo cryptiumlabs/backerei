@@ -4,22 +4,25 @@ module Main where
 
 import           Control.Concurrent
 import           Control.Monad
-import           Data.Function                (on)
-import qualified Data.Text                    as T
-import qualified Data.Text.IO                 as T
+import           Data.Function                    (on, (&))
+import qualified Data.Sequence                    as Seq
+import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as T
 import           Development.GitRev
 import           Foundation
+import qualified Network.Monitoring.Riemann.Event as Riemann
+import qualified Network.Monitoring.Riemann.TCP   as Riemann
 import           Options.Applicative
-import qualified Prelude                      as P
-import qualified Servant.Client               as TG
+import qualified Prelude                          as P
+import qualified Servant.Client                   as TG
 import           System.Directory
 import           System.Exit
 import           System.IO
-import qualified Telegram.Bot.API             as TG
-import           Text.PrettyPrint.ANSI.Leijen hiding ((<$>), (<>))
+import qualified Telegram.Bot.API                 as TG
+import           Text.PrettyPrint.ANSI.Leijen     hiding ((<$>), (<>))
 
-import qualified Backerei.RPC                 as RPC
-import qualified Backerei.Types               as RPC
+import qualified Backerei.RPC                     as RPC
+import qualified Backerei.Types                   as RPC
 
 import           Config
 import           Options
@@ -49,10 +52,15 @@ run (Options configPath command) = do
       putDoc versionDoc
       exitSuccess
     Init addr host port from fromName fee dbPath clientPath clientConfigFile startingCycle cycleLength snapshotInterval -> do
-      let config = Config addr host port from fromName [(startingCycle, fee)] dbPath Nothing clientPath clientConfigFile startingCycle cycleLength snapshotInterval Nothing
+      let config = Config addr host port from fromName [(startingCycle, fee)] dbPath Nothing clientPath clientConfigFile startingCycle cycleLength snapshotInterval Nothing Nothing
       writeConfig configPath config
       exitSuccess
     Monitor -> withConfig $ \config -> do
+      event <- case configRiemann config of
+                 Nothing -> return $ const $ return ()
+                 Just (RiemannConfig host port) -> do
+                   conn <- Riemann.tcpConnection (T.unpack host) port
+                   return $ Riemann.sendEvents conn . Seq.singleton
       let conf  = RPC.Config (configHost config) (configPort config)
           baker = configBakerAddress config
           waitUntil height = do
@@ -60,17 +68,9 @@ run (Options configPath command) = do
                   [head]:_ <- RPC.blocks conf
                   if Just head == prev then threadDelay (P.round (1e6 :: Double)) >> helper prev else do
                     header <- RPC.header conf head
-                    T.putStrLn $ T.concat ["Current height: ", T.pack $ P.show $ RPC.headerLevel header]
+                    event $ Riemann.ok "tezos" & Riemann.metric (RPC.headerLevel header) & Riemann.description ("Hash: " <> T.unpack (RPC.headerHash header))
                     if RPC.headerLevel header == height then return head else helper (Just head)
-            T.putStrLn $ T.concat ["Waiting for height: ", T.pack $ P.show height]
             helper Nothing
-      (sendMessage, prepend) <- case configTelegram config of
-                        Nothing -> return (T.putStrLn, "")
-                        Just (TelegramConfig token channelMonitoring _ usernamesToNotify) -> do
-                          env <- TG.defaultTelegramClientEnv (TG.Token token)
-                          return (\msg -> do
-                            _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channelMonitoring) msg Nothing Nothing Nothing Nothing Nothing)) env
-                            T.putStrLn msg, T.intercalate " " usernamesToNotify <> " ")
       [head]:_ <- RPC.blocks conf
       level <- RPC.currentLevel conf head
       let cycle = RPC.levelCycle level
@@ -87,20 +87,19 @@ run (Options configPath command) = do
           levelToWait (Left b)  = RPC.bakingLevel b
           allRights = sortBy (compare `on` levelToWait) $ filter (\x -> levelToWait x > RPC.levelLevel level) (fmap Right endorsing <> fmap Left baking)
       forM_ allRights $ \right -> do
-        sendMessage $ T.concat ["Next baking/endorsing right: ", T.pack $ P.show right]
         hash <- waitUntil (levelToWait right)
         case right of
           Right e -> do
             operations <- RPC.operations conf hash
             case P.filter ((==) (Just baker) . RPC.opmetadataDelegate . RPC.opcontentsMetadata . P.head . RPC.operationContents) operations of
-              [] -> sendMessage $ prepend <> T.concat ["Expected to endorse block ", T.pack $ P.show (RPC.endorsingLevel e), " but did not."]
-              _ -> sendMessage $ T.concat ["Endorsement of block at height ", T.pack $ P.show $ RPC.endorsingLevel e, " OK!"]
+              [] -> event $ Riemann.failure "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
+              _ -> event $ Riemann.ok "endorser" & Riemann.description ("height " P.++ P.show (RPC.endorsingLevel e)) & Riemann.ttl 86400
           Left _ -> do
             metadata <- RPC.metadata conf hash
             if RPC.metadataBaker metadata == baker then
-              sendMessage $ T.concat ["Baked block ", T.pack $ P.show hash, " OK!"]
+              event $ Riemann.ok "baker" & Riemann.description ("hash " P.++ P.show hash) & Riemann.ttl 86400
             else
-              sendMessage $ prepend <> T.concat ["Expected to bake but did not, instead baker was: ", RPC.metadataBaker metadata]
+              event $ Riemann.failure "baker" & Riemann.description ("stolen by " P.++ T.unpack (RPC.metadataBaker metadata)) & Riemann.ttl 86400
     Payout noDryRun continuous -> withConfig $ \config -> do
       notify <- case configTelegram config of
         Nothing -> return T.putStrLn

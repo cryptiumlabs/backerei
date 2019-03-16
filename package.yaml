@@ -79,6 +79,7 @@ executables:
     - aeson-pretty
     - posix-pty
     - atomic-write
+    - hriemann
 
 tests:
   backerei-test:

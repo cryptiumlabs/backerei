@@ -22,7 +22,8 @@ data Config = Config {
   configStartingCycle       :: Int,
   configCycleLength         :: Int,
   configSnapshotInterval    :: Int,
-  configTelegram            :: Maybe TelegramConfig
+  configTelegram            :: Maybe TelegramConfig,
+  configRiemann             :: Maybe RiemannConfig
 } deriving (Generic)
 
 data TelegramConfig = TelegramConfig {
@@ -30,6 +31,11 @@ data TelegramConfig = TelegramConfig {
   telegramMonitoringChannel           :: T.Text,
   telegramNotificationChannel         :: T.Text,
   telegramUsernamesToNotifyOnDowntime :: [T.Text]
+} deriving (Generic)
+
+data RiemannConfig = RiemannConfig {
+  riemannHost :: T.Text,
+  riemannPort :: Int
 } deriving (Generic)
 
 loadConfig ∷ P.FilePath → IO (Maybe Config)
@@ -42,6 +48,13 @@ instance Y.FromJSON Config where
   parseJSON = customParseJSON
 
 instance Y.ToJSON Config where
+  toJSON = customToJSON
+  toEncoding = customToEncoding
+
+instance Y.FromJSON RiemannConfig where
+  parseJSON = customParseJSON
+
+instance Y.ToJSON RiemannConfig where
   toJSON = customToJSON
   toEncoding = customToEncoding
 
