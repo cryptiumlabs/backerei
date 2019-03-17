@@ -19,9 +19,10 @@ import           Backerei.Types                           (Tezzies)
 withDB :: forall a . P.FilePath -> (Maybe DB -> IO (DB, a)) -> IO a
 withDB = withFile
 
-withDBLoop :: P.FilePath -> (Maybe DB -> IO (DB, Bool)) -> IO ()
+withDBLoop :: P.FilePath -> (Maybe DB -> IO (DB, (Bool, IO ()))) -> IO ()
 withDBLoop path func = do
-  updated <- withFile path func
+  (updated, action) <- withFile path func
+  action
   if updated then withDBLoop path func else return ()
 
 withAccountDB :: forall a . P.FilePath -> (Maybe AccountDB -> IO (AccountDB, a)) -> IO a

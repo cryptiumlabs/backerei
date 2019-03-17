@@ -21,7 +21,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee
@@ -70,7 +70,8 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
             knownCycle   = currentCycle + 5
-        foldFirst db (fmap maybeUpdateEstimatesForCycle [startingCycle .. knownCycle])
+        (res, updated) <- foldFirst db (fmap maybeUpdateEstimatesForCycle [startingCycle .. knownCycle])
+        return (res, (updated, return ()))
 
       maybeUpdateActualForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
@@ -107,26 +108,28 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
             knownCycle   = currentCycle - 1
-        foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
+        (res, updated) <- foldFirst db (fmap maybeUpdateActualForCycle [startingCycle .. knownCycle])
+        return (res, (updated, return ()))
 
       maybePayoutDelegatorsForCycle cycle delegators db = do
         let needToPay = P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
             toPay     = P.take 100 needToPay
-        if null toPay then return (db, False) else do
+        if null toPay then return (db, (False, return ())) else do
           forM_ toPay $ \(address, delegator) -> do
             let Just amount = delegatorFinalRewards delegator
             T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
-          updatedDelegators <-
+          (updatedDelegators, action) <-
             if noDryRun then do
               let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
+              threadDelay 300000000
               if length toPay == length needToPay then do
                 notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
               else return ()
-              threadDelay 300000000
-              return $ M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators
-            else return delegators
-          return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, noDryRun)
+              let action = case maybePostPayoutScript of Nothing -> return (); Just script -> P.callCommand (T.unpack script)
+              return (M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators, action)
+            else return (delegators, return ())
+          return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, (noDryRun, action))
       maybePayoutForCycle cycle db = do
         let payouts = dbPayoutsByCycle db
         case M.lookup cycle payouts of
@@ -134,18 +137,18 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
           Just cyclePayout -> do
             let delegators = cycleDelegators cyclePayout
                 total = P.sum $ fmap (fromJust . delegatorFinalRewards) $ P.filter (isJust . delegatorFinalRewards) $ P.filter (isNothing . delegatorPayoutOperationHash) $ M.elems delegators
-            if total == 0 then return (db, False) else do
+            if total == 0 then return (db, (False, return ())) else do
               balance <- RPC.balanceAt conf RPC.head from
               T.putStrLn $ T.concat ["Total payouts: ", T.pack $ P.show total, ", payout account balance: ", T.pack $ P.show balance]
               if balance < total then do
                 T.putStrLn "Balance less than total required to pay cycle, aborting"
-                return (db, False)
+                return (db, (False, return ()))
               else maybePayoutDelegatorsForCycle cycle delegators db
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
             unlockedCycle = currentCycle - 6
-        foldFirst db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
+        foldFirst3 db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
       balanceAt :: AccountDB -> Int -> T.Text -> RPC.Tezzies
       balanceAt db height account =
@@ -265,7 +268,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             T.putStrLn $ T.concat ["Creating new DB in file ", databasePath, "..."]
             step databasePath (Just $ DB M.empty)
           Just prev -> do
-            foldFirst prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
+            foldFirst3 prev [maybeUpdateEstimates, maybeUpdateActual, maybePayout]
 
       loop = withDBLoop (T.unpack databasePath) (step databasePath)
 
@@ -294,6 +297,12 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
 waitASecond :: IO ()
 waitASecond = threadDelay (P.round (1e6 :: Double))
+
+foldFirst3 :: a -> [a -> IO (a, (Bool, IO ()))] -> IO (a, (Bool, IO ()))
+foldFirst3 obj [] = return (obj, (False, return ()))
+foldFirst3 obj (act:rest) = do
+  (new, (updated, other)) <- act obj
+  if updated then return (new, (updated, other)) else foldFirst3 obj rest
 
 foldFirst :: a -> [a -> IO (a, Bool)] -> IO (a, Bool)
 foldFirst obj [] = return (obj, False)

@@ -23,7 +23,8 @@ data Config = Config {
   configCycleLength         :: Int,
   configSnapshotInterval    :: Int,
   configTelegram            :: Maybe TelegramConfig,
-  configRiemann             :: Maybe RiemannConfig
+  configRiemann             :: Maybe RiemannConfig,
+  configPostPayoutScript    :: Maybe T.Text
 } deriving (Generic)
 
 data TelegramConfig = TelegramConfig {
