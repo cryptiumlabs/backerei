@@ -126,7 +126,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               if length toPay == length needToPay then do
                 notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
               else return ()
-              let action = case maybePostPayoutScript of Nothing -> return (); Just script -> P.callCommand (T.unpack script)
+              let action = if length toPay == length needToPay then case maybePostPayoutScript of Nothing -> return (); Just script -> P.callCommand (T.unpack script) else return ()
               return (M.union (M.fromList $ fmap (\(address, delegator) -> (address, delegator { delegatorPayoutOperationHash = Just hash })) toPay) delegators, action)
             else return (delegators, return ())
           return (db { dbPayoutsByCycle = M.adjust (\c -> c { cycleDelegators = updatedDelegators }) cycle $ dbPayoutsByCycle db }, (noDryRun, action))
