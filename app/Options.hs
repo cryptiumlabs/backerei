@@ -1,5 +1,6 @@
 module Options where
 
+import qualified Config
 import qualified Data.Text           as T
 import           Foundation
 import           Options.Applicative
@@ -56,7 +57,7 @@ fromNameOptions :: Parser T.Text
 fromNameOptions = T.pack <$> strOption (long "from-name" <> metavar "NAME" <> help "Local client alias of the address to send payouts from")
 
 feeOptions :: Parser Rational
-feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value (1 / 10))
+feeOptions = option auto (long "fee" <> metavar "FEE" <> help "Fractional fee taken by baker" <> showDefault <> value Config.defaultFee)
 
 dbPathOptions :: Context -> Parser T.Text
 dbPathOptions ctx = T.pack <$> strOption (long "database-path" <> metavar "DBPATH" <> help "Path to JSON DB" <> showDefault <> value (contextHomeDirectory ctx <> "/.backerei.json"))
