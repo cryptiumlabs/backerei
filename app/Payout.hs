@@ -24,7 +24,8 @@ payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
 payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
-      feeForCycle cycle = snd $ P.last $ P.filter ((>=) cycle . fst) varyingFee
+      feeForCycle cycle = fromMaybe Config.defaultFee $
+        snd . last <$> (nonEmpty $ filter ((>=) cycle . fst) varyingFee)
 
       maybeUpdateTimestampsForCycle cycle db = do
         let history = accountHistory db

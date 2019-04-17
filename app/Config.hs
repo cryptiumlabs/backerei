@@ -79,3 +79,6 @@ customToJSON = A.genericToJSON jsonOptions
 
 customToEncoding :: (Generic a, A.GToEncoding A.Zero (Rep a)) => a -> A.Encoding
 customToEncoding = A.genericToEncoding jsonOptions
+
+defaultFee :: Rational
+defaultFee = 1 / 10
