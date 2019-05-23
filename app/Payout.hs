@@ -155,7 +155,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       balanceAt db height account =
         let txs   = P.filter (\tx -> txBlock tx <= height && txAccount tx == account) $ accountTxs db
             txb   = P.sum $ fmap (\tx -> (case txKind tx of Debit -> -1; Credit -> 1) P.* txAmount tx) txs
-            vtxs  = P.filter (\vtx -> vtxBlock vtx <= height && (vtxFrom vtx == account || vtxTo vtx == account)) $ accountVtxs db
+            vtxs  = P.filter (\vtx -> vtxBlock vtx < height && (vtxFrom vtx == account || vtxTo vtx == account)) $ accountVtxs db
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
