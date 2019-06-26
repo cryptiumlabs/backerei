@@ -123,7 +123,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             if noDryRun then do
               let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
-              threadDelay 300000000
+              threadDelay 600000000
               if length toPay == length needToPay then do
                 notify $ T.concat ["Payouts for cycle ", T.pack $ P.show cycle, " complete!"]
               else return ()
