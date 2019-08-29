@@ -19,7 +19,7 @@ data Command =
   Version |
   Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int |
   Monitor |
-  Payout Bool Bool
+  Payout Bool Bool Bool
 
 options ∷ Context → Parser Options
 options ctx = Options <$> configOptions ctx <*> commandOptions ctx
@@ -84,10 +84,13 @@ monitorOptions ∷ Parser Command
 monitorOptions = pure Monitor
 
 payoutOptions ∷ Parser Command
-payoutOptions = Payout <$> noDryRunOptions <*> continuousOptions
+payoutOptions = Payout <$> noDryRunOptions <*> continuousOptions <*> noPasswordOptions
 
 noDryRunOptions :: Parser Bool
 noDryRunOptions = switch (long "no-dry-run" <> help "Really transfer Tezzies")
 
 continuousOptions :: Parser Bool
 continuousOptions = switch (long "continuous" <> help "Run continuously")
+
+noPasswordOptions :: Parser Bool
+noPasswordOptions = switch (long "no-password" <> help "Do not prompt for password, assume unencrypted account")
