@@ -100,7 +100,7 @@ run (Options configPath command) = do
               event $ Riemann.ok "baker" & Riemann.metric (levelToWait right) & Riemann.description ("Hash: " <> P.show hash) & Riemann.ttl 86400
             else
               event $ Riemann.failure "baker" & Riemann.metric (levelToWait right) & Riemann.description ("Stolen by: " P.++ T.unpack (RPC.metadataBaker metadata)) & Riemann.ttl 86400
-    Payout noDryRun continuous -> withConfig $ \config -> do
+    Payout noDryRun continuous noPassword -> withConfig $ \config -> do
       notify <- case configTelegram config of
         Nothing -> return T.putStrLn
         Just (TelegramConfig token channelNotification) -> do
@@ -109,13 +109,16 @@ run (Options configPath command) = do
             _ <- TG.runClientM (TG.sendMessage (TG.SendMessageRequest (TG.SomeChatUsername channelNotification) msg Nothing Nothing Nothing Nothing Nothing)) env
             T.putStrLn $ T.concat ["Notified ", channelNotification, " with \"", msg, "\""])
       fromPassword <- do
-        hSetEcho stdin False
-        System.IO.putStr "Enter source account password: "
-        hFlush stdout
-        pass <- getLine
-        putChar '\n'
-        hSetEcho stdin True
-        return pass
+        if noPassword then do
+          return ""
+        else do
+          hSetEcho stdin False
+          System.IO.putStr "Enter source account password: "
+          hFlush stdout
+          pass <- getLine
+          putChar '\n'
+          hSetEcho stdin True
+          return pass
       payout config noDryRun (case P.length fromPassword of 0 -> Nothing; _ -> Just $ T.pack fromPassword) continuous notify
 
 aboutDoc ∷ Doc
