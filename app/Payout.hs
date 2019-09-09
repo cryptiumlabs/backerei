@@ -8,6 +8,7 @@ import           Data.Maybe            (fromJust)
 import qualified Data.Text             as T
 import qualified Data.Text.IO          as T
 import           Foundation
+import           Foundation.Collection ((!))
 import qualified Prelude               as P
 import           System.Exit
 import qualified System.Posix.Pty      as P
