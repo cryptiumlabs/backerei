@@ -90,10 +90,11 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
               lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength cycle baker
               T.putStrLn $ T.concat ["Lost endorsement rewards due to other-baker downtime for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show lostEndorsementRewards]
-              let [thisCycle] = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
-                  feeRewards = RPC.frozenFees thisCycle
+              let frozenBalanceThisCycle = P.filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle
+                  inactiveBakerThisCycle = (length frozenBalanceThisCycle == CountOf 0)
+                  feeRewards = if inactiveBakerThisCycle then 0 else (RPC.frozenFees (frozenBalanceThisCycle P.!! 0))
                   extraRewards = feeRewards P.- lostEndorsementRewards
-                  realizedRewards = feeRewards P.+ RPC.frozenRewards thisCycle
+                  realizedRewards = if inactiveBakerThisCycle then 0 else (feeRewards P.+ RPC.frozenRewards (frozenBalanceThisCycle P.!! 0 ))
                   estimatedRewards = cycleEstimatedTotalRewards cyclePayout
                   paidRewards = estimatedRewards P.+ extraRewards
                   realizedDifference = realizedRewards P.- paidRewards
