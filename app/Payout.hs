@@ -22,7 +22,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       feeForCycle cycle = fromMaybe Config.defaultFee $
@@ -71,7 +71,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybeUpdateEstimates db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
-            knownCycle   = currentCycle + 5
+            knownCycle   = currentCycle + preservedCycles
         (res, updated) <- foldFirst db (fmap maybeUpdateEstimatesForCycle [startingCycle .. knownCycle])
         return (res, (updated, return ()))
 
@@ -149,7 +149,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
-            unlockedCycle = currentCycle - 6
+            unlockedCycle = currentCycle - preservedCycles - payoutDelay - 1
         foldFirst3 db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
       balanceAt :: AccountDB -> Int -> T.Text -> RPC.Tezzies
@@ -174,7 +174,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
       maybePayoutAccountsForCycle cycle db = do
         -- Pay out released rewards (looking up balances) as virtual transactions, then mark cycle paid.
-        let unlockedCycle = cycle P.- 6
+        let unlockedCycle = cycle P.- preservedCycles - payoutDelay - 1
         if unlockedCycle < startingCycle then return (db, False) else do
           let history = accountHistory db
               state = history M.! unlockedCycle
@@ -190,7 +190,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
       maybeFetchAccountEstimatesForCycle mainDB cycle db = do
         -- Fetch estimates for future cycle and calculate exact payouts for just-completed cycle.
-        let knownCycle = cycle + 5
+        let knownCycle = cycle + preservedCycles
             history = accountHistory db
         case M.lookup knownCycle history of
           Just _  -> return (db, False)
@@ -245,7 +245,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybePayoutAccountsAndFetchEstimates mainDB db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
-        foldFirst db (fmap (maybePayoutAccountsAndFetchEstimatesForCycle mainDB) [startingCycle - 5 .. currentCycle])
+        foldFirst db (fmap (maybePayoutAccountsAndFetchEstimatesForCycle mainDB) [startingCycle - preservedCycles .. currentCycle])
 
       maybeFetchOperationsByLevel level db = do
         T.putStrLn $ T.concat ["Scanning operations in level ", T.pack $ P.show level, "..."]
