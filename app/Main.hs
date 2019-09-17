@@ -39,6 +39,7 @@ context = Context <$> getHomeDirectory
 
 run ∷ Options → IO ()
 run (Options configPath command) = do
+  hSetBuffering stdout LineBuffering
   let withConfig ∷ (Config → IO ()) → IO ()
       withConfig func = do
         maybeConf <- loadConfig configPath
