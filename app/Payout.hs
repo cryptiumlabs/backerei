@@ -185,7 +185,12 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
                 makeTx _ = error "should not happen: no final rewards"
                 txs = fmap makeTx (M.toList $ statePreferred state)
                 newState = state { statePaid = True }
-            return (db { accountVtxs = accountVtxs db P.++ txs, accountHistory = M.insert unlockedCycle newState (accountHistory db) }, True)
+            let sweep = accountsSweep db
+            T.putStrLn $ T.concat ["Sweeping all balances from accounts ", T.intercalate ", " sweep]
+            let makeTx :: T.Text -> VirtualTx
+                makeTx account = VirtualTx account "" cycleStart (balanceAt db cycleStart account)
+                sweepTxs = filter (\vtx -> vtxAmount vtx > 0) $ fmap makeTx sweep
+            return (db { accountVtxs = accountVtxs db P.++ txs P.++ sweepTxs, accountHistory = M.insert unlockedCycle newState (accountHistory db) }, True)
 
       maybeFetchAccountEstimatesForCycle mainDB cycle db = do
         -- Fetch estimates for future cycle and calculate exact payouts for just-completed cycle.
@@ -279,7 +284,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               case db of
                 Nothing -> do
                   T.putStrLn $ T.concat ["Creating new account DB in file ", accountDatabasePath, "..."]
-                  loop $ Just $ AccountDB (-1) [] [] [] M.empty
+                  loop $ Just $ AccountDB (-1) [] [] [] [] M.empty
                 Just prev -> do
                   (res, updated) <- foldFirst prev [maybeFetchOperations, maybePayoutAccountsAndFetchEstimates mainDB, maybeUpdateTimestamps]
                   if updated then loop (Just res) else return (res, ())
