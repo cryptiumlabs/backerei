@@ -60,6 +60,7 @@ data AccountDB = AccountDB {
   accountTxs              :: [AccountTx],
   accountVtxs             :: [VirtualTx],
   accountsPreferred       :: [(T.Text, [(Int, Rational)])],
+  accountsSweep           :: [T.Text],
   accountHistory          :: M.Map Int AccountsState
 } deriving (Generic, Show)
 
