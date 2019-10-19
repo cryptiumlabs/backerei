@@ -52,8 +52,8 @@ run (Options configPath command) = do
     Version -> do
       putDoc versionDoc
       exitSuccess
-    Init addr host port from fromName fee dbPath clientPath clientConfigFile startingCycle cycleLength snapshotInterval -> do
-      let config = Config addr host port from fromName [(startingCycle, fee)] dbPath Nothing clientPath clientConfigFile startingCycle cycleLength snapshotInterval Nothing Nothing Nothing
+    Init addr host port from fromName fee dbPath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay -> do
+      let config = Config addr host port from fromName [(startingCycle, fee)] dbPath Nothing clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay Nothing Nothing Nothing
       writeConfig configPath config
       exitSuccess
     Monitor -> withConfig $ \config -> do
