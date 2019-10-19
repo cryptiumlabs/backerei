@@ -9,23 +9,25 @@ import           GHC.Generics
 import qualified Prelude      as P
 
 data Config = Config {
-  configBakerAddress         :: T.Text,
-  configHost                 :: T.Text,
-  configPort                 :: Int,
-  configFromAddress          :: T.Text,
-  configFromAccountName      :: T.Text,
-  configFees                 :: [(Int, Rational)],
-  configDatabasePath         :: T.Text,
-  configAccountDatabasePath  :: Maybe T.Text,
-  configClientPath           :: T.Text,
-  configClientConfigFile     :: T.Text,
-  configStartingCycle        :: Int,
-  configCycleLength          :: Int,
-  configSnapshotInterval     :: Int,
+  configBakerAddress        :: T.Text,
+  configHost                :: T.Text,
+  configPort                :: Int,
+  configFromAddress         :: T.Text,
+  configFromAccountName     :: T.Text,
+  configFees                :: [(Int, Rational)],
+  configDatabasePath        :: T.Text,
+  configAccountDatabasePath :: Maybe T.Text,
+  configClientPath          :: T.Text,
+  configClientConfigFile    :: T.Text,
+  configStartingCycle       :: Int,
+  configCycleLength         :: Int,
+  configSnapshotInterval    :: Int,
+  configPreservedCycles     :: Int,
+  configPayoutDelay         :: Int,
   configBabylonStartingCycle :: Int,
-  configTelegram             :: Maybe TelegramConfig,
-  configRiemann              :: Maybe RiemannConfig,
-  configPostPayoutScript     :: Maybe T.Text
+  configTelegram            :: Maybe TelegramConfig,
+  configRiemann             :: Maybe RiemannConfig,
+  configPostPayoutScript    :: Maybe T.Text
 } deriving (Generic)
 
 data TelegramConfig = TelegramConfig {

@@ -17,7 +17,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int Int |
+  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int Int Int Int |
   Monitor |
   Payout Bool Bool Bool
 
@@ -39,7 +39,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions <*> babylonStartingCycleOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions <*> preservedCyclesOptions <*> payoutDelayOptions <*> babylonStartingCycleOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -79,6 +79,12 @@ snapshotIntervalOptions = option auto (long "snapshot-interval" <> metavar "BLOC
 
 babylonStartingCycleOptions :: Parser Int
 babylonStartingCycleOptions = option auto (long "babylon-starting-cycle" <> metavar "CYCLE" <> help "Starting cycle for Babylon upgrade" <> showDefault <> value 160)
+
+preservedCyclesOptions :: Parser Int
+preservedCyclesOptions = option auto (long "preserved-cycles" <> metavar "BLOCKS" <> help "Preserved cycles constant, may be different for alphanet" <> showDefault <> value 5)
+
+payoutDelayOptions :: Parser Int
+payoutDelayOptions = option auto (long "payout-delay" <> metavar "BLOCKS" <> help "Delay in cycles to pay out delegators later or earlier than rewards unlocking" <> showDefault <> value 0)
 
 accountOptions :: Parser T.Text
 accountOptions = T.pack <$> strOption (long "account" <> metavar "ACCOUNT" <> help "Account name or KT1 address")

@@ -75,6 +75,25 @@ Bäckerei is fairly well tested, but be careful! Ensure you trust the Tezos node
 to which you are connecting. In any case, you would be well-advised to pay from 
 an isolated account with the minimal requisite balance.
 
+#### Constants
+
+Different networks such as alphanet may have different constants. You need to specify these constants during initialisation for Backerei to work correctly.
+
+The default values for these constants work on the Tezos mainnet.
+
+* `--cycle-length` defaults to 4096. For alphanet, set to 2048
+* `--snapshot-interval` defaults to 512. For alphanet, set to 256
+* `--preserved-cycles`: defaults to 5. For alphanet, set to 3
+
+#### Delayed payouts
+
+By default, the payouts are paid after `PRESERVED_CYCLES`, which corresponds to when
+the Tezos network unfreezes them. You may choose to pay them earlier or later:
+
+* `--payout-delay 2` will pay the rewards two cycles (six days) later
+* `--payout-delay -1` will pay the rewards one cycle (three days) before you actually
+get access to them
+
 #### Verifying payouts
 
 You can find historical payout logs for Cryptium Labs 

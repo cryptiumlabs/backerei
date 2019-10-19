@@ -1,6 +1,7 @@
 module Payout where
 
 import           Control.Concurrent
+import           Control.Exception
 import           Control.Monad
 import qualified Data.ByteString.Char8 as B
 import qualified Data.Map              as M
@@ -22,7 +23,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval babylonStartingCycle _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay babylonStartingCycle _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       isBabylon cycle = cycle >= babylonStartingCycle
@@ -73,7 +74,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybeUpdateEstimates db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
-            knownCycle   = currentCycle + 5
+            knownCycle   = currentCycle + preservedCycles
         (res, updated) <- foldFirst db (fmap maybeUpdateEstimatesForCycle [startingCycle .. knownCycle])
         return (res, (updated, return ()))
 
@@ -151,7 +152,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybePayout db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle  = RPC.levelCycle currentLevel
-            unlockedCycle = currentCycle - 6
+            unlockedCycle = currentCycle - preservedCycles - payoutDelay - 1
         foldFirst3 db (fmap maybePayoutForCycle [startingCycle .. unlockedCycle])
 
       balanceAt :: AccountDB -> Int -> T.Text -> RPC.Tezzies
@@ -176,7 +177,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
       maybePayoutAccountsForCycle cycle db = do
         -- Pay out released rewards (looking up balances) as virtual transactions, then mark cycle paid.
-        let unlockedCycle = cycle P.- 6
+        let unlockedCycle = cycle P.- preservedCycles - payoutDelay - 1
         if unlockedCycle < startingCycle then return (db, False) else do
           let history = accountHistory db
               state = history M.! unlockedCycle
@@ -197,7 +198,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 
       maybeFetchAccountEstimatesForCycle mainDB cycle db = do
         -- Fetch estimates for future cycle and calculate exact payouts for just-completed cycle.
-        let knownCycle = cycle + 5
+        let knownCycle = cycle + preservedCycles
             history = accountHistory db
         case M.lookup knownCycle history of
           Just _  -> return (db, False)
@@ -252,7 +253,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
       maybePayoutAccountsAndFetchEstimates mainDB db = do
         currentLevel <- RPC.currentLevel conf RPC.head
         let currentCycle = RPC.levelCycle currentLevel
-        foldFirst db (fmap (maybePayoutAccountsAndFetchEstimatesForCycle mainDB) [startingCycle - 5 .. currentCycle])
+        foldFirst db (fmap (maybePayoutAccountsAndFetchEstimatesForCycle mainDB) [startingCycle - preservedCycles .. currentCycle])
 
       maybeFetchOperationsByLevel level db = do
         T.putStrLn $ T.concat ["Scanning operations in level ", T.pack $ P.show level, "..."]
@@ -307,6 +308,9 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
 waitASecond :: IO ()
 waitASecond = threadDelay (P.round (1e6 :: Double))
 
+try' :: IO a ->  IO (Either IOException a)
+try' =  try
+
 foldFirst3 :: a -> [a -> IO (a, (Bool, IO ()))] -> IO (a, (Bool, IO ()))
 foldFirst3 obj [] = return (obj, (False, return ()))
 foldFirst3 obj (act:rest) = do
@@ -322,20 +326,40 @@ foldFirst obj (act:rest) = do
 sign :: T.Text -> T.Text -> Maybe T.Text -> T.Text -> T.Text -> IO T.Text
 sign clientPath clientConfigFile fromPassword account what = do
   let args = ["-c", clientConfigFile, "sign", "bytes", "0x03" <> what, "for", account]
-  T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a pty"]
-  (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (fmap T.unpack args) (80, 80)
-  waitASecond
-  P.threadWaitReadPty pty
-  stderr <- P.readPty pty
-  P.threadWaitWritePty pty
-  P.writePty pty (B.pack $ T.unpack $ case fromPassword of Just pass -> T.concat [pass, "\n"]; Nothing -> "")
-  waitASecond
-  code <- P.waitForProcess handle
-  stdout <- P.readPty pty
-  P.closePty pty
-  if code /= ExitSuccess then do
-    T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
-    exitFailure
-  else do
-    let asText = T.pack $ B.unpack stdout
-    return $ T.drop 13 $ T.take (T.length asText - 2) asText
+  asText <- do
+    case fromPassword of
+      Just pass -> do
+        T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a pty"]
+        (pty, handle) <- P.spawnWithPty Nothing True (T.unpack clientPath) (fmap T.unpack args) (80, 80)
+        waitASecond
+        P.threadWaitReadPty pty
+        stderr <- P.readPty pty
+        P.threadWaitWritePty pty
+        P.writePty pty (B.pack $ T.unpack $ T.concat [pass, "\n"])
+        waitASecond
+        code <- P.waitForProcess handle
+        stdout <- P.readPty pty
+        P.closePty pty
+        if code /= ExitSuccess then do
+          T.putStrLn $ T.concat ["Failure: ", T.pack $ P.show (code, stdout, stderr)]
+          exitFailure
+        else do
+          let asText = T.pack $ B.unpack stdout
+          return asText
+      Nothing -> do
+        T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a subprocess"]
+        result <- try' $ P.createProcess (P.proc (P.show clientPath) (P.map P.show args)){ P.std_out = P.CreatePipe }
+        case result of
+          Left ex -> do
+            T.putStrLn $ T.concat [ "Subprocess returned an exception: ", T.pack $ P.show ex ]
+            exitFailure
+          Right (_, Nothing , _, _) -> do
+            T.putStrLn "Error: subprocess returned nothing"
+            exitFailure
+          Right (_, Just hout, _, _) -> do
+            T.putStrLn "Success"
+            asText <- T.hGetContents hout
+            return asText
+  T.putStrLn "> output of signature"
+  T.putStrLn asText
+  return $ T.drop 13 $ T.take (T.length asText - 2) asText
