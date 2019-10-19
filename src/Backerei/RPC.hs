@@ -104,7 +104,7 @@ sendTezzies config from fromName dests sign = do
   (BlockHeader hashHead _ _ _) <- header config head
   (BlockMetadata protocolHead _ _) <- metadata config hashHead
   let fakeSignature = "edsigtXomBKi5CTRf5cjATJWSyaRvhfYNHqSUGrn4SdbYRcGwQrUGjzEfQDTuqHhuA8b2d8NarZjz8TRf65WkpQmo423BtomS8Q" :: T.Text
-      runJSON = A.toJSON $ M.fromList [("operation" :: T.Text, M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns), ("signature", A.toJSON fakeSignature)])]
+      runJSON = A.toJSON $ M.fromList [("operation" :: T.Text, A.toJSON $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns), ("signature", A.toJSON fakeSignature)]), ("chain_id", A.String "main")]
   (RunResult contents) <- post config ["chains", "main", "blocks", head, "helpers", "scripts", "run_operation"] mempty runJSON
   let succeeded = P.filter ((==) "applied" . opresultStatus . (\(Just x) -> x) . opmetadataOperationResult . opcontentsMetadata) contents
   when (P.length succeeded /= P.length dests) $ error "simulation failure"
