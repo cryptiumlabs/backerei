@@ -48,6 +48,30 @@ hashToQuery config cycle cycleLength = do
 snapshotHeight :: Int -> Int -> Int -> Int -> Int
 snapshotHeight cycle snapshot cycleLength snapshotInterval = (cycle - 7) * cycleLength + ((snapshot + 1) * snapshotInterval)
 
+lostBakingRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
+lostBakingRewards config cycleLength cycle delegate = do
+  hash <- hashToQuery config cycle cycleLength
+  bakingRights <- RPC.bakingRightsFor config hash delegate cycle
+  let bakingReward :: (P.Num a) => a
+      bakingReward = 16
+  actualRewards' <- flip mapM bakingRights $ \right -> do
+    let level = bakingLevel right
+    hash <- blockHashByLevel config level
+    header <- RPC.header config hash
+    metadata <- RPC.metadata config hash
+    -- TODO!
+    let endorsements :: Double
+        endorsements = 32
+        priority = headerPriority header
+        reward = if priority /= 0 then bakingReward else fromIntegral (P.floor (bakingReward * (0.8 + (0.2 * endorsements / 32))) :: Integer)
+    return reward
+  let expectedRewards :: Tezzies
+      expectedRewards = 16 P.* (fromIntegral $ P.length bakingRights)
+      actualRewards :: Tezzies
+      actualRewards = P.sum actualRewards'
+  T.putStrLn $ T.concat ["Expected / actual baking rewards (plus self-baked insurance) for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show expectedRewards, " / ", T.pack $ P.show actualRewards]
+  return (expectedRewards P.- actualRewards)
+
 lostEndorsementRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
 lostEndorsementRewards config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
