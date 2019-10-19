@@ -75,9 +75,9 @@ Bäckerei is fairly well tested, but be careful! Ensure you trust the Tezos node
 to which you are connecting. In any case, you would be well-advised to pay from 
 an isolated account with the minimal requisite balance.
 
-#### Consants
+#### Constants
 
-Different networks such as alphanet may have different constants. You need to specify these constants during initialiation for Backerei to work correctly.
+Different networks such as alphanet may have different constants. You need to specify these constants during initialisation for Backerei to work correctly.
 
 The default values for these constants work on the Tezos mainnet.
 
