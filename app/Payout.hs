@@ -22,8 +22,10 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval babylonStartingCycle _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
+
+      isBabylon cycle = cycle >= babylonStartingCycle
 
       feeForCycle cycle = fromMaybe Config.defaultFee $
         snd . last <$> (nonEmpty $ filter ((>=) cycle . fst) varyingFee)

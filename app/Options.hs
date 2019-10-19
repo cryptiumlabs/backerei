@@ -17,7 +17,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int |
+  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int Int |
   Monitor |
   Payout Bool Bool Bool
 
@@ -39,7 +39,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions <*> babylonStartingCycleOptions
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -76,6 +76,9 @@ cycleLengthOptions = option auto (long "cycle-length" <> metavar "BLOCKS" <> hel
 
 snapshotIntervalOptions :: Parser Int
 snapshotIntervalOptions = option auto (long "snapshot-interval" <> metavar "BLOCKS" <> help "Interval between snapshots in blocks" <> showDefault <> value 256)
+
+babylonStartingCycleOptions :: Parser Int
+babylonStartingCycleOptions = option auto (long "babylon-starting-cycle" <> metavar "CYCLE" <> help "Starting cycle for Babylon upgrade" <> showDefault <> value 160)
 
 accountOptions :: Parser T.Text
 accountOptions = T.pack <$> strOption (long "account" <> metavar "ACCOUNT" <> help "Account name or KT1 address")
