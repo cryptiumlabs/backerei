@@ -41,6 +41,7 @@ default-extensions:
   - FlexibleInstances
   - DataKinds
   - GeneralizedNewtypeDeriving
+  - MultiWayIf
 
 ghc-options:
   - -ferror-spans
