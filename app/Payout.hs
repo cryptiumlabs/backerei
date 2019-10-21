@@ -23,8 +23,10 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay babylonStartingCycle _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
+
+      isBabylon cycle = cycle >= babylonStartingCycle
 
       feeForCycle cycle = fromMaybe Config.defaultFee $
         snd . last <$> (nonEmpty $ filter ((>=) cycle . fst) varyingFee)
@@ -92,9 +94,14 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               frozenBalanceByCycle <- RPC.frozenBalanceByCycle conf hash baker
               lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength cycle baker
               T.putStrLn $ T.concat ["Lost endorsement rewards due to other-baker downtime for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show lostEndorsementRewards]
+              lostBakingRewards <- if isBabylon cycle then do
+                lostRewards <- Delegation.lostBakingRewards conf cycleLength cycle baker
+                T.putStrLn $ T.concat ["Lost baking rewards due to missing endorsements for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show lostRewards]
+                return lostRewards
+                else return 0
               let thisCycle = filter ((==) cycle . RPC.frozenCycle) frozenBalanceByCycle ! 0
                   feeRewards = maybe 0 RPC.frozenFees thisCycle
-                  extraRewards = feeRewards P.- lostEndorsementRewards
+                  extraRewards = feeRewards P.- lostEndorsementRewards P.- lostBakingRewards
                   realizedRewards = feeRewards P.+ maybe 0 RPC.frozenRewards thisCycle
                   estimatedRewards = cycleEstimatedTotalRewards cyclePayout
                   paidRewards = estimatedRewards P.+ extraRewards
@@ -161,12 +168,12 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
             vtxb  = P.sum $ fmap (\vtx -> (if vtxFrom vtx == account then -1 else 1) P.* vtxAmount vtx) vtxs
         in txb P.+ vtxb
 
-      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> AccountRewards
+      calculateRewards :: BakerRewards -> Maybe (RPC.Tezzies, RPC.Tezzies, RPC.Tezzies, RPC.Tezzies) -> RPC.Tezzies -> RPC.Tezzies -> Rational -> AccountRewards
       calculateRewards (BakerRewards estimatedBond _ _ estimatedTotal) finalFees balance totalBalance split =
         let fraction      = if balance == 0 then 0 else balance P./ totalBalance
             bondRewards   = estimatedBond
             bondNet       = fraction P.* bondRewards
-            feeNet        = case finalFees of Just (fees, lostEndorsementRewards, total) -> balance P.* (fees P.- lostEndorsementRewards) P./ total; Nothing -> 0
+            feeNet        = case finalFees of Just (fees, lostEndorsementRewards, lostBakingRewards, total) -> balance P.* (fees P.- lostEndorsementRewards P.- lostBakingRewards) P./ total; Nothing -> 0
             otherRewards  = (estimatedTotal P.- estimatedBond)
             otherNet      = otherRewards P.* fraction P.* P.fromRational split
             selfNet       = bondNet P.+ feeNet
@@ -233,12 +240,13 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
           hash <- Delegation.hashToQuery conf (finishedCycle + 2) cycleLength
           fees <- RPC.frozenFeesForCycle conf hash baker finishedCycle
           lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength finishedCycle baker
+          lostBakingRewards <- if isBabylon cycle then Delegation.lostBakingRewards conf cycleLength cycle baker else return 0
           T.putStrLn $ T.concat ["Total fees for cycle ", T.pack $ P.show finishedCycle, ": ", T.pack $ P.show fees]
           let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
               Just finalBakerRewards = cycleFinalBakerRewards cyclePayout
               totalBalance = stateTotalBalance state
-              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, lostEndorsementRewards, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
+              updatedPreferred  = fmap (\(account, AccountCycleState balance split estimated Nothing) -> (account, AccountCycleState balance split estimated (Just $ calculateRewards estimatedBakerRewards (Just (fees, lostEndorsementRewards, lostBakingRewards, snapshotBalance)) balance totalBalance split))) $ M.toList $ statePreferred state
               remainderRewards  = bakerTotalRewards finalBakerRewards P.- P.sum (fmap (rewardsTotal . fromJust . accountFinalRewards . snd) updatedPreferred)
               remainder         = stateRemainder state
               updatedRemainder  = remainder { accountFinalRewards = Just $ AccountRewards 0 0 remainderRewards }
