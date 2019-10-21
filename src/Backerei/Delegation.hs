@@ -59,10 +59,10 @@ lostBakingRewards config cycleLength cycle delegate = do
     hash <- blockHashByLevel config level
     header <- RPC.header config hash
     metadata <- RPC.metadata config hash
-    P.print (hash, filter (\u -> updateDelegate u == Just (metadataBaker metadata) && updateKind u == "freezer" && updateCategory u == Just "rewards") (metadataBalanceUpdates metadata))
     let priority = headerPriority header
-        [update] = filter (\u -> updateDelegate u == Just (metadataBaker metadata) && updateKind u == "freezer" && updateCategory u == Just "rewards") (metadataBalanceUpdates metadata)
+        update:_ = filter (\u -> updateDelegate u == Just (metadataBaker metadata) && updateKind u == "freezer" && updateCategory u == Just "rewards") (metadataBalanceUpdates metadata)
         reward = if priority /= 0 then bakingReward else updateChange update
+    unless (updateChange update `elem` [12.8, 14.4, 16]) (error "unexpected balance change")
     return reward
   let expectedRewards :: Tezzies
       expectedRewards = 16 P.* (fromIntegral $ P.length bakingRights)
