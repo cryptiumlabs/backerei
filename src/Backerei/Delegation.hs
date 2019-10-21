@@ -59,6 +59,7 @@ lostBakingRewards config cycleLength cycle delegate = do
     hash <- blockHashByLevel config level
     header <- RPC.header config hash
     metadata <- RPC.metadata config hash
+    P.print (hash, metadata)
     let priority = headerPriority header
         [update] = filter (\u -> updateDelegate u == Just (metadataBaker metadata) && updateKind u == "freezer" && updateCategory u == Just "rewards") (metadataBalanceUpdates metadata)
         reward = if priority /= 0 then bakingReward else updateChange update
