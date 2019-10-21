@@ -51,7 +51,7 @@ snapshotHeight cycle snapshot cycleLength snapshotInterval = (cycle - 7) * cycle
 lostBakingRewards :: RPC.Config -> Int -> Int -> T.Text -> IO Tezzies
 lostBakingRewards config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
-  bakingRights <- RPC.bakingRightsFor config hash delegate cycle
+  bakingRights <- filter (\r -> bakingPriority r == 0) `fmap` RPC.bakingRightsFor config hash delegate cycle
   let bakingReward :: (P.Num a) => a
       bakingReward = 16
   actualRewards' <- flip mapM bakingRights $ \right -> do
