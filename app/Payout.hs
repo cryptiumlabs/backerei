@@ -240,7 +240,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
           hash <- Delegation.hashToQuery conf (finishedCycle + 2) cycleLength
           fees <- RPC.frozenFeesForCycle conf hash baker finishedCycle
           lostEndorsementRewards <- Delegation.lostEndorsementRewards conf cycleLength finishedCycle baker
-          lostBakingRewards <- if isBabylon cycle then Delegation.lostBakingRewards conf cycleLength cycle baker else return 0
+          lostBakingRewards <- if isBabylon finishedCycle then Delegation.lostBakingRewards conf cycleLength cycle baker else return 0
           T.putStrLn $ T.concat ["Total fees for cycle ", T.pack $ P.show finishedCycle, ": ", T.pack $ P.show fees]
           let cyclePayout = dbPayoutsByCycle mainDB M.! finishedCycle
               estimatedBakerRewards = cycleEstimatedBakerRewards cyclePayout
