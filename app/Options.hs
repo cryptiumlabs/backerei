@@ -17,7 +17,7 @@ data Options = Options {
 
 data Command =
   Version |
-  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int Int Int Int |
+  Init T.Text T.Text Int T.Text T.Text Rational T.Text T.Text T.Text Int Int Int Int Int Int Bool |
   Monitor |
   Payout Bool Bool Bool
 
@@ -39,7 +39,7 @@ versionOptions ∷ Parser Command
 versionOptions = pure Version
 
 initOptions ∷ Context -> Parser Command
-initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions <*> preservedCyclesOptions <*> payoutDelayOptions <*> babylonStartingCycleOptions
+initOptions ctx = Init <$> addrOptions <*> hostOptions <*> portOptions <*> fromOptions <*> fromNameOptions <*> feeOptions <*> dbPathOptions ctx <*> clientPathOptions <*> clientConfigFileOptions <*> startingCycleOptions <*> cycleLengthOptions <*> snapshotIntervalOptions <*> preservedCyclesOptions <*> payoutDelayOptions <*> babylonStartingCycleOptions <*> payEstimatedRewards
 
 addrOptions ∷ Parser T.Text
 addrOptions = T.pack <$> strOption (long "tz1" <> metavar "tz1" <> help "tz1 address of baker implicit account")
@@ -85,6 +85,9 @@ preservedCyclesOptions = option auto (long "preserved-cycles" <> metavar "BLOCKS
 
 payoutDelayOptions :: Parser Int
 payoutDelayOptions = option auto (long "payout-delay" <> metavar "BLOCKS" <> help "Delay in cycles to pay out delegators later or earlier than rewards unlocking" <> showDefault <> value 0)
+
+payEstimatedRewards :: Parser Bool
+payEstimatedRewards = switch (long "pay-estimated-rewards" <> help "Pay out reward estimates instead of realized rewards")
 
 accountOptions :: Parser T.Text
 accountOptions = T.pack <$> strOption (long "account" <> metavar "ACCOUNT" <> help "Account name or KT1 address")
