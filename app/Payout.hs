@@ -122,7 +122,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
         return (res, (updated, return ()))
 
       maybePayoutDelegatorsForCycle cycle delegators db = do
-        let needToPay = if payEstimatedRewards then P.filter (\(_, delegator) -> case delegatorPayoutOperationHash delegator of Nothing -> True; _ -> False) $ M.toList delegators else P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
+        let needToPay = if payEstimatedRewards then P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorEstimatedRewards delegator) of (Nothing, amount) | amount > 0 -> True; _ -> False) $ M.toList delegators else P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
             toPay     = P.take 100 needToPay
         if null toPay then return (db, (False, return ())) else do
           forM_ toPay $ \(address, delegator) -> do
