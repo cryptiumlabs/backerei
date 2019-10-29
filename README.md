@@ -100,6 +100,17 @@ The default values for these constants work on the Tezos mainnet.
 * `--snapshot-interval` defaults to 512. For alphanet, set to 256
 * `--preserved-cycles`: defaults to 5. For alphanet, set to 3
 
+#### Estimated rewards vs final rewards
+
+The payout calculator assumes 100% liveness of your own baking and endorsing node, and pays
+accordingly. However, the effective rewards for a given baker also depends on the behaviour
+of other bakers in the network. For example, if bakers fail to endorse your block, or fail
+to include your endorsment in their block, then your rewards are lower.
+
+Estimated rewards assume perfect behaviour of the entire set of active delegates for
+a given block. Final rewards take into account the actual faulty behaviour of other nodes
+(not yours) and are accordingly a few percent lower.
+
 #### Delayed payouts
 
 By default, the payouts are paid after `PRESERVED_CYCLES`, which corresponds to when
@@ -108,6 +119,12 @@ the Tezos network unfreezes them. You may choose to pay them earlier or later:
 * `--payout-delay 2` will pay the rewards two cycles (six days) later
 * `--payout-delay -1` will pay the rewards one cycle (three days) before you actually
 get access to them
+
+You cannot set a payout delay of less than negative `PRESERVED_CYCLES` because final
+rewards can not be computed before the cycle ends. However, you may set up a payout delay
+of up to `2*PRESERVED_CYCLES + 1` if you use the `--pay-estimated-rewards` option.
+
+This option will likely pay more than the final fee, so adjust your fee accordingly.
 
 #### Verifying payouts
 

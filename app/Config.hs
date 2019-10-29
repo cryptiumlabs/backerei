@@ -25,6 +25,7 @@ data Config = Config {
   configPreservedCycles      :: Int,
   configPayoutDelay          :: Int,
   configBabylonStartingCycle :: Int,
+  configPayEstimatedRewards  :: Bool,
   configTelegram             :: Maybe TelegramConfig,
   configRiemann              :: Maybe RiemannConfig,
   configPostPayoutScript     :: Maybe T.Text

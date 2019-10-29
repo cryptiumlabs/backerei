@@ -23,7 +23,7 @@ import           Config
 import           DB
 
 payout :: Config -> Bool -> Maybe T.Text -> Bool -> (T.Text -> IO ()) -> IO ()
-payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay babylonStartingCycle _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
+payout (Config baker host port from fromName varyingFee databasePath accountDatabasePath clientPath clientConfigFile startingCycle cycleLength snapshotInterval preservedCycles payoutDelay babylonStartingCycle payEstimatedRewards _ _ maybePostPayoutScript) noDryRun fromPassword continuous notify = do
   let conf = RPC.Config host port
 
       isBabylon cycle = cycle >= babylonStartingCycle
@@ -122,15 +122,17 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
         return (res, (updated, return ()))
 
       maybePayoutDelegatorsForCycle cycle delegators db = do
-        let needToPay = P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
+        let needToPay = if payEstimatedRewards then P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorEstimatedRewards delegator) of (Nothing, amount) | amount > 0 -> True; _ -> False) $ M.toList delegators else P.filter (\(_, delegator) -> case (delegatorPayoutOperationHash delegator, delegatorFinalRewards delegator) of (Nothing, Just amount) | amount > 0 -> True; _ -> False) $ M.toList delegators
             toPay     = P.take 100 needToPay
         if null toPay then return (db, (False, return ())) else do
           forM_ toPay $ \(address, delegator) -> do
-            let Just amount = delegatorFinalRewards delegator
-            T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid ", T.pack $ P.show amount, " XTZ"]
+            if payEstimatedRewards then
+              T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid estimated rewards of ", T.pack $ P.show $ delegatorEstimatedRewards delegator, " XTZ"]
+            else
+              T.putStrLn $ T.concat ["For cycle ", T.pack $ P.show cycle, " delegator ", address, " should be paid final rewards of ", T.pack $ P.show $ fromJust (delegatorFinalRewards delegator), " XTZ"]
           (updatedDelegators, action) <-
             if noDryRun then do
-              let dests = fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
+              let dests = if payEstimatedRewards then fmap (\(address, delegator) -> (address, delegatorEstimatedRewards delegator)) toPay else fmap (\(address, delegator) -> (address, let Just amount = delegatorFinalRewards delegator in amount)) toPay
               hash <- RPC.sendTezzies conf from fromName dests (sign clientPath clientConfigFile fromPassword)
               threadDelay 600000000
               if length toPay == length needToPay then do
@@ -146,7 +148,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
           Nothing -> error "should not happen: missed lookup"
           Just cyclePayout -> do
             let delegators = cycleDelegators cyclePayout
-                total = P.sum $ fmap (fromJust . delegatorFinalRewards) $ P.filter (isJust . delegatorFinalRewards) $ P.filter (isNothing . delegatorPayoutOperationHash) $ M.elems delegators
+            let total = if payEstimatedRewards then P.sum $ fmap delegatorEstimatedRewards $ P.filter (isNothing . delegatorPayoutOperationHash) $ M.elems delegators else P.sum $ fmap (fromJust . delegatorFinalRewards) $ P.filter (isJust . delegatorFinalRewards) $ P.filter (isNothing . delegatorPayoutOperationHash) $ M.elems delegators
             if total == 0 then return (db, (False, return ())) else do
               balance <- RPC.balanceAt conf RPC.head from
               T.putStrLn $ T.concat ["Total payouts: ", T.pack $ P.show total, ", payout account balance: ", T.pack $ P.show balance]
