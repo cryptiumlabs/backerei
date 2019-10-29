@@ -75,6 +75,21 @@ Bäckerei is fairly well tested, but be careful! Ensure you trust the Tezos node
 to which you are connecting. In any case, you would be well-advised to pay from 
 an isolated account with the minimal requisite balance.
 
+#### Fee format
+
+The `--fee` parameter to `backerei init` requires the format "n % d" where `n` is
+numerator and `d` is denominator.
+
+For example:
+
+```
+# set up a 9.5% fee
+backerei init --fee "19 % 200" <...>
+
+# set up a 5% fee
+backerei init --fee "5 % 100" <...>
+```
+
 #### Constants
 
 Different networks such as alphanet may have different constants. You need to specify these constants during initialisation for Backerei to work correctly.

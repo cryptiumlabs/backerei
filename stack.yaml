@@ -3,7 +3,7 @@ packages:
 - .
 extra-deps:
 - posix-pty-0.2.1.1
-- git: git@github.com:shmish111/hriemann.git
+- git: https://github.com/shmish111/hriemann.git
   commit: 9526dbc0b07ea37f37f4753177390df10385fe83
 - kazura-queue-0.1.0.4@sha256:24c26a38b98c49c6f6448410e8d7499c88be423bba75a204a7f9a8155c5cda41
 - unagi-chan-0.4.1.0@sha256:97e08dd9a73462ca284bfd2f904cd471c94e1207c2dd79a59efcc8fe2c93de41
