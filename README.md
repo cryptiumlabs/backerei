@@ -120,7 +120,7 @@ the Tezos network unfreezes them. You may choose to pay them earlier or later:
 * `--payout-delay -1` will pay the rewards one cycle (three days) before you actually
 get access to them
 
-You can not set a payout delay of less than negative `PRESERVED_CYCLES` because final
+You cannot set a payout delay of less than negative `PRESERVED_CYCLES` because final
 rewards can not be computed before the cycle ends. However, you may set up a payout delay
 of up to `2*PRESERVED_CYCLES + 1` if you use the `--pay-estimated-rewards` option.
 
