@@ -76,7 +76,7 @@ balanceAt config hash contract = get config ["chains", "main", "blocks", hash, "
 counter :: Config -> T.Text -> T.Text -> IO Integer
 counter config hash contract = P.read `fmap` get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "counter"] mempty
 
-managerKey :: Config -> T.Text -> T.Text -> IO T.Text
+managerKey :: Config -> T.Text -> T.Text -> IO (Maybe T.Text)
 managerKey config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "manager_key"] mempty
 
 bakingRightsFor :: Config -> T.Text -> T.Text -> Int -> IO [BakingRight]
