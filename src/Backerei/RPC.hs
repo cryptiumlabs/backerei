@@ -1,7 +1,6 @@
 module Backerei.RPC where
 
 import           Control.Applicative
-import qualified Control.Exception as E
 import           Control.Monad
 import qualified Data.Aeson                as A
 import qualified Data.Base58String.Bitcoin as B
@@ -78,9 +77,7 @@ counter :: Config -> T.Text -> T.Text -> IO Integer
 counter config hash contract = P.read `fmap` get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "counter"] mempty
 
 managerKey :: Config -> T.Text -> T.Text -> IO (Maybe T.Text)
-managerKey config hash contract = do
-  (res :: Maybe T.Text) <- get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "manager_key"] mempty
-  pure res `E.catch` (\(_ :: E.SomeException) -> pure Nothing)
+managerKey config hash contract = get config ["chains", "main", "blocks", hash, "context", "contracts", contract, "manager_key"] mempty
 
 bakingRightsFor :: Config -> T.Text -> T.Text -> Int -> IO [BakingRight]
 bakingRightsFor config hash delegate cycle = get config ["chains", "main", "blocks", hash, "helpers", "baking_rights"]
