@@ -29,8 +29,8 @@ realized fees). This is roughly equivalent to insuring liveness.
 
 #### Initialization
 
-Initialize Bäckerei with the tz1 address of your baker, for example that of 
-[Cryptium Labs](https://tzscan.io/tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8),
+Initialize Bäckerei with the tz1 address of your baker, for example that of
+[Cryptium Labs](https://tzstats.com/tz1eEnQhbwf6trb8Q8mPb2RaPkNk2rN7BKi8),
 the address you want to send payouts from, the alias associated with that address,
 the path to your database file, and the first cycle in which you baked or endorsed blocks:
 
