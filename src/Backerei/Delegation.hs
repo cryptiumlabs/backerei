@@ -53,7 +53,7 @@ lostBakingRewards config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   bakingRights <- filter (\r -> bakingPriority r == 0) `fmap` RPC.bakingRightsFor config hash delegate cycle
   let bakingReward :: (P.Num a) => a
-      bakingReward = 16
+      bakingReward = 40
   actualRewards' <- flip mapM bakingRights $ \right -> do
     let level = bakingLevel right
     hash <- blockHashByLevel config level
@@ -62,10 +62,9 @@ lostBakingRewards config cycleLength cycle delegate = do
     let priority = headerPriority header
         update:_ = filter (\u -> updateDelegate u == Just (metadataBaker metadata) && updateKind u == "freezer" && updateCategory u == Just "rewards") (metadataBalanceUpdates metadata)
         reward = if priority /= 0 then bakingReward else updateChange update
-    unless (priority /= 0 || updateChange update `elem` [12.8, 14.4, 16]) (error "unexpected balance change")
     return reward
   let expectedRewards :: Tezzies
-      expectedRewards = 16 P.* (fromIntegral $ P.length bakingRights)
+      expectedRewards = 40 P.* (fromIntegral $ P.length bakingRights)
       actualRewards :: Tezzies
       actualRewards = P.sum actualRewards'
   T.putStrLn $ T.concat ["Expected / actual baking rewards (plus self-baked insurance) for cycle ", T.pack $ P.show cycle, ": ", T.pack $ P.show expectedRewards, " / ", T.pack $ P.show actualRewards]
@@ -76,13 +75,13 @@ lostEndorsementRewards config cycleLength cycle delegate = do
   hash <- hashToQuery config cycle cycleLength
   endorsingRights <- RPC.endorsingRightsFor config hash delegate cycle
   let endorsingReward :: Tezzies
-      endorsingReward = 2
+      endorsingReward = 40 P./ 32
   actualRewards' <- flip mapM endorsingRights $ \right -> do
     let level = endorsingLevel right
     hash <- blockHashByLevel config level
     header <- RPC.header config hash
     metadata <- RPC.metadata config hash
-    let baseReward = if metadataBaker metadata == delegate then endorsingReward else endorsingReward P./ (fromIntegral (headerPriority header P.+ 1))
+    let baseReward = if metadataBaker metadata == delegate then endorsingReward else endorsingReward P.* 3 P./ 2
         reward = baseReward P.* (fromIntegral $ P.length $ endorsingSlots right)
     return reward
   let expectedRewards :: Tezzies
@@ -104,9 +103,9 @@ estimatedRewards config cycleLength cycle delegate = do
   bakingRights <- filter ((==) 0 . bakingPriority) `fmap` RPC.bakingRightsFor config hash delegate cycle
   endorsingRights <- RPC.endorsingRightsFor config hash delegate cycle
   let bakingReward :: Tezzies
-      bakingReward = 16
+      bakingReward = 40
       endorsingReward :: Tezzies
-      endorsingReward = 2
+      endorsingReward = 40 P./ 32
       totalReward :: Tezzies
       totalReward = (bakingReward P.* fromIntegral (P.length bakingRights)) P.+ (endorsingReward P.* fromIntegral (P.sum $ fmap (P.length . endorsingSlots) endorsingRights))
   return totalReward
