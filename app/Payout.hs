@@ -355,10 +355,10 @@ sign clientPath clientConfigFile fromPassword account what = do
           exitFailure
         else do
           let asText = T.pack $ B.unpack stdout
-          return asText
+          return $ T.drop 13 $ T.take (T.length asText - 2) asText
       Nothing -> do
         T.putStrLn $ T.concat ["Running '", T.intercalate " " (clientPath : args), "' in a subprocess"]
-        result <- try' $ P.createProcess (P.proc (P.show clientPath) (P.map P.show args)){ P.std_out = P.CreatePipe }
+        result <- try' $ P.createProcess (P.proc (T.unpack clientPath) (fmap T.unpack args)){ P.std_out = P.CreatePipe }
         case result of
           Left ex -> do
             T.putStrLn $ T.concat [ "Subprocess returned an exception: ", T.pack $ P.show ex ]
@@ -369,7 +369,7 @@ sign clientPath clientConfigFile fromPassword account what = do
           Right (_, Just hout, _, _) -> do
             T.putStrLn "Success"
             asText <- T.hGetContents hout
-            return asText
+            return $ T.drop 11 $ T.take (T.length asText - 1) asText
   T.putStrLn "> output of signature"
   T.putStrLn asText
-  return $ T.drop 13 $ T.take (T.length asText - 2) asText
+  return asText
