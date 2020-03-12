@@ -111,7 +111,7 @@ payout (Config baker host port from fromName varyingFee databasePath accountData
               ((bakerBondReward, bakerFeeReward, bakerLooseReward, bakerTotalReward), calculated, _) <- Delegation.calculateRewardsFor conf cycleLength snapshotInterval cycle baker paidRewards fee
               let bakerRewards = BakerRewards bakerBondReward bakerFeeReward bakerLooseReward bakerTotalReward
                   estimatedDelegators = cycleDelegators cyclePayout
-                  delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance (delegatorEstimatedRewards $ estimatedDelegators M.! addr) (Just payout) Nothing)) calculated
+                  delegators = M.fromList $ fmap (\(addr, balance, payout) -> (addr, DelegatorPayout balance (delegatorEstimatedRewards $ estimatedDelegators M.! addr) (Just payout) (delegatorPayoutOperationHash $ estimatedDelegators M.! addr))) calculated
               return (db { dbPayoutsByCycle = M.insert cycle (cyclePayout { cycleStolenBlocks = stolenBlocks, cycleFinalTotalRewards = Just finalTotalRewards,
                 cycleFinalBakerRewards = Just bakerRewards, cycleDelegators = delegators }) payouts }, True)
       maybeUpdateActual db = do
