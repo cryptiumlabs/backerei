@@ -80,8 +80,7 @@ lostEndorsementRewards config cycleLength cycle delegate = do
     let level = endorsingLevel right
     hash <- blockHashByLevel config level
     header <- RPC.header config hash
-    metadata <- RPC.metadata config hash
-    let baseReward = if metadataBaker metadata == delegate then endorsingReward else endorsingReward P.* 2 P./ 3
+    let baseReward = if headerPriority header == 0 then endorsingReward else (endorsingReward P.* 2 P./ 3)
         reward = baseReward P.* (fromIntegral $ P.length $ endorsingSlots right)
     return reward
   let expectedRewards :: Tezzies
