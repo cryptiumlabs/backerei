@@ -107,7 +107,7 @@ sendTezzies config from fromName dests sign = do
       runJSON = A.toJSON $ M.fromList [("operation" :: T.Text, A.toJSON $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns), ("signature", A.toJSON fakeSignature)]), ("chain_id", A.String "NetXdQprcVkpaWU")]
   (RunResult contents) <- post config ["chains", "main", "blocks", head, "helpers", "scripts", "run_operation"] mempty runJSON
   let succeeded = P.filter ((==) "applied" . opresultStatus . (\(Just x) -> x) . opmetadataOperationResult . opcontentsMetadata) contents
-  when (P.length succeeded /= P.length dests) $ error "simulation failure"
+  when (P.length succeeded /= P.length dests) $ error $ show ("simulation failure", P.filter ((/=) "applied" . opresultStatus . (\(Just x) -> x) . opmetadataOperationResult . opcontentsMetadata) contents)
   let signJSON = A.toJSON $ M.fromList [("branch" :: T.Text, A.String hashHead), ("contents", A.toJSON txns)]
   (bytes :: T.Text) <- post config ["chains", "main", "blocks", head, "helpers", "forge", "operations"] mempty signJSON
   signature <- sign fromName bytes
