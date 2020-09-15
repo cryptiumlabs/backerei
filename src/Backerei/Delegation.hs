@@ -2,7 +2,7 @@ module Backerei.Delegation where
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.List           (zip)
+import           Data.List           (zip, delete)
 import qualified Data.Text           as T
 import qualified Data.Text.IO        as T
 import           Foundation
@@ -14,7 +14,7 @@ import           Backerei.Types
 getContributingBalancesFor :: RPC.Config -> Int -> Int -> Int -> T.Text -> IO ([(T.Text, Tezzies)], Tezzies)
 getContributingBalancesFor config cycleLength snapshotInterval cycle delegate = do
   snapshotBlockHash <- snapshotHash config cycle cycleLength snapshotInterval
-  delegators <- RPC.delegatedContracts config snapshotBlockHash delegate
+  delegators <- delete delegate <$> RPC.delegatedContracts config snapshotBlockHash delegate
   balances <- mapM (RPC.balanceAt config snapshotBlockHash) delegators
   fullBalance <- RPC.delegateBalanceAt config snapshotBlockHash delegate
   frozenByCycle <- RPC.frozenBalanceByCycle config snapshotBlockHash delegate
