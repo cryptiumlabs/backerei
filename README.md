@@ -1,5 +1,7 @@
 ## Bäckerei
 
+**Backerei is now deprecated as of August 2021. Please use the [Tezos Rewards Distributor](https://github.com/tezos-reward-distributor-organization/tezos-reward-distributor).**
+
 Bäckerei is tooling that we wrote for the Cryptium Tezos Bäckerei. At a high
 level it manages the payments from us, the baker, to our delegators. Bäckerei
 is initialised with a TZ1 address which is used for baking. When run, it connects to
